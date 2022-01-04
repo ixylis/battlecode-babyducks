@@ -4,6 +4,11 @@ import java.util.Random;
 
 public abstract class Robot {
 	final RobotController rc;
+	int actionCooldown;
+	int moveCooldown;
+	int visionRadius;
+	int actionRadius;
+
 	static final Direction[] directions = {
         	Direction.NORTH,
         	Direction.NORTHEAST,
@@ -36,5 +41,42 @@ public abstract class Robot {
 	}
 
 	public abstract void turn() throws GameActionException;
+
+	public MapLocation findNearestDeposit() throws GameActionException {
+		MapLocation me = rc.getLocation();
+		for (int r = 0; r <= visionRadius; r++){
+			for (int dx = 0; dx <= r; dx++){
+				int dy = r;
+				MapLocation mineLocation = new MapLocation(me.x+dx, me.y+dy);
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+					return mineLocation;
+				}
+				dy = -r;
+				mineLocation = new MapLocation(me.x+dx, me.y+dy);
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+					return mineLocation;
+				}
+			}
+			for (int dy = 0; dy <= r; dy++){
+				int dx = r;
+				MapLocation mineLocation = new MapLocation(me.x+dx, me.y+dy);
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+					return mineLocation;
+				}
+				dx = -r;
+				mineLocation = new MapLocation(me.x+dx, me.y+dy);
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+					return mineLocation;
+				}
+			}
+		}
+		return null;
+	}
+
+	public Direction directionTo(MapLocation l) throws GameActionException{
+		MapLocation me = rc.getLocation();
+		return me.directionTo(l);
+	}
+
 
 }

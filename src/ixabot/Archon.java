@@ -4,6 +4,11 @@ import battlecode.common.*;
 import java.util.Random;
 
 class Archon extends Building {
+	final int actionCooldown = 10;
+	final int moveCooldown = 24;
+	final int actionRadius = 20;
+	final int visionRadius = 34;
+
 	Archon(RobotController rc){
 		super(rc);
 	}
