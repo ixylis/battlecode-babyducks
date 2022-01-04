@@ -5,7 +5,7 @@ import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 
 public class Miner extends Robot {
-    Miner(RobotController r) {
+    Miner(RobotController r) throws GameActionException {
         super(r);
     }
     public void turn() throws GameActionException {

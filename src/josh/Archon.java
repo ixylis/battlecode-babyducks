@@ -6,8 +6,12 @@ import battlecode.common.RobotController;
 import battlecode.common.RobotType;
 
 public class Archon extends Robot {
-    Archon(RobotController r) {
+    Archon(RobotController r) throws GameActionException {
         super(r);
+        int i;
+        for(i=INDEX_MY_HQ;rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
+        if(i<INDEX_MY_HQ+4)
+            rc.writeSharedArray(i, Robot.locToInt(rc.getLocation()));
     }
     private int lastTurnMoney=0;
     private int miners=0;
