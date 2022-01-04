@@ -72,7 +72,12 @@ public abstract class Robot {
 		}
 		return null;
 	}
-
+        public static final int locToInt(MapLocation l) {
+                return (l.x<<7) | l.y | 0x4000;
+        }
+        public static final MapLocation intToLoc(int x) {
+                return new MapLocation((x>>7)&0x7f, x&0x7f);
+        }
 	public Direction directionTo(MapLocation l) throws GameActionException{
 		MapLocation me = rc.getLocation();
 		return me.directionTo(l);
