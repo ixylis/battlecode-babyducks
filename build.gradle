@@ -71,6 +71,7 @@ def clientName = os.startsWith('windows') ? 'battlecode22-client-win' :
 dependencies {
     // The Battlecode engine.
     implementation group: 'org.battlecode', name: 'battlecode22', version: versions.battlecode
+    implementation 'org.jetbrains:annotations:20.1.0'
 
     // The Battlecode client.
     client group: 'org.battlecode', name: clientName, version: versions.battlecode
