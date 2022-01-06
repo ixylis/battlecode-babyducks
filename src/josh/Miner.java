@@ -15,7 +15,7 @@ public class Miner extends Robot {
         mine();
     }
     private void movement() throws GameActionException {
-        RobotInfo[] nearby = rc.senseNearbyRobots(13, rc.getTeam());
+        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
         RobotInfo nearest = null;
         for(RobotInfo r:nearby) {
             if(r.type==RobotType.MINER && (nearest==null || rc.getLocation().distanceSquaredTo(nearest.location) > rc.getLocation().distanceSquaredTo(r.location)))
