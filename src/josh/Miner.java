@@ -149,7 +149,7 @@ public class Miner extends Robot {
         } else if(rc.canSenseLocation(loc=l.translate(4, 2)) && rc.senseLead(loc)>1) {
             moveToward(loc);
         } else {
-            if(!rc.isActionReady()) //only wander if you did not mine this turn
+            if(rc.isActionReady()) //only wander if you did not mine this turn
                 wander();
         }
     }
