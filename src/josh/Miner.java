@@ -18,7 +18,7 @@ public class Miner extends Robot {
         RobotInfo[] nearby = rc.senseNearbyRobots(13, rc.getTeam());
         RobotInfo nearest = null;
         for(RobotInfo r:nearby) {
-            if(nearest==null || rc.getLocation().distanceSquaredTo(nearest.location) > rc.getLocation().distanceSquaredTo(r.location))
+            if(r.type==RobotType.MINER && (nearest==null || rc.getLocation().distanceSquaredTo(nearest.location) > rc.getLocation().distanceSquaredTo(r.location)))
                 nearest = r;
         }
         if(nearest!=null) {
@@ -149,7 +149,8 @@ public class Miner extends Robot {
         } else if(rc.canSenseLocation(loc=l.translate(4, 2)) && rc.senseLead(loc)>1) {
             moveToward(loc);
         } else {
-            wander();
+            if(!rc.isActionReady()) //only wander if you did not mine this turn
+                wander();
         }
     }
     private void mine() throws GameActionException {
