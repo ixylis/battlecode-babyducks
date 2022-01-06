@@ -29,7 +29,7 @@ public class Archon extends Robot {
     private boolean build(RobotType t) throws GameActionException {
         if(rc.getTeamLeadAmount(rc.getTeam()) < t.getLeadWorth(1))
             return false;
-        int o = Robot.rng.nextInt(8);
+        int o = rng.nextInt(8);
         for(int i=0;i<8;i++) {
             Direction dir = directions[(i+o)%8];
             if(rc.canBuildRobot(t, dir)) {
