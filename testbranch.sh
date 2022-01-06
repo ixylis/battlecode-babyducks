@@ -1,18 +1,18 @@
 #!/bin/bash
-#play two branches against each other. With one argument plays the named branch against main. With zero arguments plays the current branch against main
+#play two branches against each other. With one argument plays the named branch against the current branch. With zero arguments plays main against the current branch.
 
 mkdir tmp 2>/dev/null
 currentBranch=$(git symbolic-ref --short HEAD)
-if [ ! -z $1 ]
+if [ ! -z $2 ]
 then
-git checkout $1 2>/dev/null
+git checkout $2 2>/dev/null
 fi
-teamA=$(echo ${1-$currentBranch} | sed "s/-//g")
-teamB=$(echo ${2-main} | sed "s/-//g")
+teamA=$(echo ${1-main} | sed "s/-//g")
+teamB=$(echo ${2-$currentBranch} | sed "s/-//g")
 ./copypackage.sh josh $teamA
 cp -r src/$teamA tmp
 rm -r src/$teamA
-git checkout ${2-main} 2>/dev/null >/dev/null 
+git checkout ${2-$currentBranch} 2>/dev/null >/dev/null 
 ./copypackage.sh josh $teamB
 cp -r tmp/$teamA src
 git checkout $currentBranch 2>/dev/null >/dev/null
