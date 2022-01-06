@@ -43,7 +43,7 @@ public abstract class Robot {
         for(int i=0;i<5;i++) {
             MapLocation l = rc.getLocation().add(dd[i]);
             if(rc.onTheMap(l))
-                suitability[i] /= rc.senseRubble(l);
+                suitability[i] /= 10 + rc.senseRubble(l);
         }
         double best = 0;
         Direction bestD = null;
