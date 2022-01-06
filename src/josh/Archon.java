@@ -17,7 +17,7 @@ public class Archon extends Robot {
     private int miners=0;
     public void turn() throws GameActionException {
         int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
-        if(income>miners*2 || miners<3) {
+        if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>miners*3 || miners<3)) {
             if(build(RobotType.MINER))
                 miners++;
         } else {
