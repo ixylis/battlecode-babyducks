@@ -11,27 +11,6 @@ public class Miner extends Robot {
     public void turn() throws GameActionException {
         MapLocation l = rc.getLocation();
         MapLocation loc;
-        while(rc.isActionReady() && rc.senseLead(l)>1)
-            rc.mineLead(l);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 0)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, -1)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, 1)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 0)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, -1)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 1)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, -1)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 1)) && rc.senseLead(loc)>1)
-            rc.mineLead(loc);
-        if(!rc.isActionReady())
-            return;
-        rc.setIndicatorString("looking farther");
         if(rc.canSenseLocation(loc=l.translate(-2, 0)) && rc.senseLead(loc)>1) {
             moveToward(loc);
         } else if(rc.canSenseLocation(loc=l.translate(0, -2)) && rc.senseLead(loc)>1) {
@@ -155,6 +134,25 @@ public class Miner extends Robot {
         } else {
             wander();
         }
+
+        while(rc.isActionReady() && rc.senseLead(l)>1)
+            rc.mineLead(l);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 0)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, -1)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, 1)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 0)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, -1)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 1)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, -1)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 1)) && rc.senseLead(loc)>1)
+            rc.mineLead(loc);
 
     }
 }
