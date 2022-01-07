@@ -7,12 +7,12 @@ if [ ! -z $2 ]
 then
 git checkout $2 2>/dev/null
 fi
-teamA=$(echo _${1-main} | sed "s/-//g")
-teamB=$(echo _${2-$currentBranch} | sed "s/-//g")
+teamB=$(echo _${1-main} | sed "s/-//g")
+teamA=$(echo _${2-$currentBranch} | sed "s/-//g")
 ./copypackage.sh josh $teamA
 cp -r src/$teamA tmp
 rm -r src/$teamA
-git checkout ${2-$currentBranch} 2>/dev/null >/dev/null 
+git checkout ${1-main} 2>/dev/null >/dev/null 
 ./copypackage.sh josh $teamB
 cp -r tmp/$teamA src
 git checkout $currentBranch 2>/dev/null >/dev/null
