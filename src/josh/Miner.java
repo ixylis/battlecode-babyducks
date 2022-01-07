@@ -99,7 +99,7 @@ public class Miner extends Robot {
         }
         int bestDir = 0;
         for(int i=1;i<9;i++) {
-            if(adjacentLead[i]/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) > adjacentLead[bestDir]/(10+rc.senseRubble(l.add(Direction.allDirections()[bestDir])))
+            if(adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) > adjacentLead[bestDir]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[bestDir])))
                     && rc.canMove(Direction.allDirections()[i]))
                 bestDir = i;
         }
