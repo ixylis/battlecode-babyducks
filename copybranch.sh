@@ -8,5 +8,4 @@ teamA=$(echo _$1 | sed "s/-//g")
 cp -r src/$teamA tmp
 rm -r src/$teamA
 git checkout $currentBranch 2>/dev/null >/dev/null 
-./copypackage.sh josh $teamB
 cp -r tmp/$teamA src
