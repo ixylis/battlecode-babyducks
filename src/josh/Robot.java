@@ -21,6 +21,7 @@ public abstract class Robot {
             try {
                 turn();
             } catch(Exception e) {
+                rc.setIndicatorString(e.toString());
                 e.printStackTrace();
             }
             Clock.yield();
