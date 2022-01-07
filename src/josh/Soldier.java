@@ -1,5 +1,6 @@
 package josh;
 
+import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
@@ -14,9 +15,29 @@ public class Soldier extends Robot {
     private MapLocation movementTarget = null;
     public void turn() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
-        if(enemies.length>0)
-            moveToward(enemies[0].location);
-        else {
+        boolean existsSoldier=false;
+        if(enemies.length>0) {
+            for(RobotInfo r : enemies) {
+                if(r.type == RobotType.SOLDIER) {
+                    //find the lowest rubble tile you can move onto.
+                    existsSoldier = true;
+                }
+            }
+            if(existsSoldier && rc.isMovementReady()) {
+                int minRubble = rc.senseRubble(rc.getLocation());
+                Direction minRubbleDir = Direction.CENTER;
+                for(Direction d : Robot.directions) {
+                    int rubble = rc.senseRubble(rc.getLocation().add(d));
+                    if(rubble < minRubble && rc.canMove(d)) {
+                        minRubble = rubble;
+                        minRubbleDir = d;
+                    }
+                }
+                if(minRubbleDir != Direction.CENTER)
+                    rc.move(minRubbleDir);
+            }
+            if(!existsSoldier && rc.isMovementReady()) moveToward(enemies[0].location);
+        } else {
             if(movementTarget!=null && rc.canSenseLocation(movementTarget))
                 movementTarget=null;
             if(movementTarget==null)
