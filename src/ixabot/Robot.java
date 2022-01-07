@@ -48,24 +48,24 @@ public abstract class Robot {
 			for (int dx = 0; dx <= r; dx++){
 				int dy = r;
 				MapLocation mineLocation = new MapLocation(me.x+dx, me.y+dy);
-				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 1){
 					return mineLocation;
 				}
 				dy = -r;
 				mineLocation = new MapLocation(me.x+dx, me.y+dy);
-				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 1){
 					return mineLocation;
 				}
 			}
 			for (int dy = 0; dy <= r; dy++){
 				int dx = r;
 				MapLocation mineLocation = new MapLocation(me.x+dx, me.y+dy);
-				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 1){
 					return mineLocation;
 				}
 				dx = -r;
 				mineLocation = new MapLocation(me.x+dx, me.y+dy);
-				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0){
+				if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 1){
 					return mineLocation;
 				}
 			}
@@ -82,6 +82,25 @@ public abstract class Robot {
 		MapLocation me = rc.getLocation();
 		return me.directionTo(l);
 	}
+
+        public void saveValue(int index, int value, int size) throws GameActionException{
+                int arrayLocation = index / 16;
+                int innerLocation = index % 16;
+                int currentValue = rc.readSharedArray(arrayLocation);
+                int andValue = (((1 << innerLocation)-1) << (16-innerLocation)) + (1 << (16-innerLocation-size)) - 1;
+                int orValue = value << 16-innerLocation-size;
+                int saveValue = (currentValue&andValue) | orValue;
+                
+                rc.writeSharedArray(arrayLocation, saveValue);
+        }
+
+        public int readValue(int index, int size) throws GameActionException{
+                int arrayLocation = index / 16;
+                int innerLocation = index % 16;
+                int arrayValue = rc.readSharedArray(arrayLocation);
+                int value = (arrayValue >> (16-innerLocation-size)) % (int)Math.pow(2, size);
+                return value;
+        }
 
 
 }
