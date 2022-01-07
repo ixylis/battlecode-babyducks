@@ -15,7 +15,8 @@ class Soldier extends Droid {
 	
 	public void turn() throws GameActionException{
 		attackSomething();
-                int sharedTarget = rc.readSharedArray(0);
+                moveRandomly();
+                /*int sharedTarget = rc.readSharedArray(0);
                 MapLocation sharedTargetLocation = intToLoc(sharedTarget);
                 RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
                 if(sharedTargetLocation.equals(targetLocation)){
@@ -42,11 +43,12 @@ class Soldier extends Droid {
                         else{
                                 targetLocation = null;
                                 if (sharedTarget != 0){
-                                        targetLocation = sharedTargetLocation;
+                                        //targetLocation = sharedTargetLocation;
                                 }
                                 moveRandomly();
                         }
                 }
+                */
 	}
 
 	public void attackSomething() throws GameActionException{

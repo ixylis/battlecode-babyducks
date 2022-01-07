@@ -15,6 +15,8 @@ class Miner extends Droid {
 	public void turn() throws GameActionException{
 		mine();
 		moveTowardsDeposit();
+                int v = readValue(6, 4);
+                rc.setIndicatorString(Integer.toString(v));
 	}
 
 	public void mine() throws GameActionException{
@@ -22,7 +24,7 @@ class Miner extends Droid {
 		for (int dx = -1*actionRadius; dx <= actionRadius; dx++) {
 			for (int dy = -1*actionRadius; dy <= actionRadius; dy++) {
 				MapLocation mineLocation = new MapLocation(me.x + dx, me.y + dy);
-				while (rc.canMineLead(mineLocation)) {
+				while (rc.canMineLead(mineLocation) && rc.senseLead(mineLocation) > 1) {
 					rc.mineLead(mineLocation);
 				}
 			}
