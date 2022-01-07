@@ -9,6 +9,14 @@ public abstract class Robot {
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS=8;
     public static final int INDEX_INCOME=9;
+    public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
+    /*
+     * intention is for each enemy seen within the last 20 rounds is in here
+     * but only put distinct entries if they are more than 4 tiles apart.
+     * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
+     */
+    
+    
     public static final boolean DEBUG=true;
     public final Random rng;
     RobotController rc;

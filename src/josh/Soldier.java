@@ -16,13 +16,24 @@ public class Soldier extends Robot {
     public void turn() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
         boolean existsSoldier=false;
+        int enemySoldierCount=0;
+        int friendlySoldierCount=0;
+        MapLocation away=rc.getLocation();
+        for(RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam())) {
+            if(r.type == RobotType.SOLDIER)
+                friendlySoldierCount++;
+        }
         if(enemies.length>0) {
             for(RobotInfo r : enemies) {
                 if(r.type == RobotType.SOLDIER) {
                     //find the lowest rubble tile you can move onto.
                     existsSoldier = true;
+                    enemySoldierCount++;
+                    away=away.translate(rc.getLocation().x-r.location.x, rc.getLocation().y-r.location.y);
                 }
             }
+            if(enemySoldierCount>friendlySoldierCount)
+                moveToward(away);
             if(existsSoldier && rc.isMovementReady()) {
                 int minRubble = rc.senseRubble(rc.getLocation());
                 Direction minRubbleDir = Direction.CENTER;
