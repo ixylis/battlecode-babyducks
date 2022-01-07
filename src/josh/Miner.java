@@ -97,15 +97,18 @@ public class Miner extends Robot {
                 adjacentLead[i] += nearbyLead[l2.x][l2.y];
             }
         }
-        int bestDir = 0;
-        for(int i=1;i<9;i++) {
+        int bestDir = 8;
+        for(int i=0;i<8;i++) {
             if(!rc.canMove(Direction.allDirections()[i]))
                 continue;
-            if(adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) > adjacentLead[bestDir]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[bestDir]))))
+            if(adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) > 
+            adjacentLead[bestDir]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[bestDir]))))
                 bestDir = i;
         }
-        if(bestDir>0) { //exclude CENTER
+        if(bestDir<8) { //exclude CENTER
             rc.move(Robot.directions[bestDir]);
+            return;
+        } else if(adjacentLead[bestDir] > 0) {
             return;
         }
         if(rc.canSenseLocation(loc=l.translate(-3, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][5]) {
