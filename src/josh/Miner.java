@@ -21,10 +21,10 @@ public class Miner extends Robot {
         }
         rc.setIndicatorString("mined="+recentlyMined);
         if(rc.getRoundNum()%20==0) {
-            if((rc.getRoundNum()/20)%2 != rc.readSharedArray(Robot.INDEX_INCOME)%2) {
-                rc.writeSharedArray(INDEX_INCOME, recentlyMined+(rc.getRoundNum()/20)%2);
+            if((rc.getRoundNum()/20)%2 == rc.readSharedArray(Robot.INDEX_INCOME)%2) {
+                rc.writeSharedArray(INDEX_INCOME, recentlyMined*2+(rc.getRoundNum()/20+1)%2);
             } else {
-                rc.writeSharedArray(INDEX_INCOME, recentlyMined+rc.readSharedArray(INDEX_INCOME));
+                rc.writeSharedArray(INDEX_INCOME, recentlyMined*2+rc.readSharedArray(INDEX_INCOME));
             }
             recentlyMined=0;
         }
