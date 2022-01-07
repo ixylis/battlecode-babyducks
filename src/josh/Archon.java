@@ -20,7 +20,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         rc.setIndicatorString("income="+income+" miners="+liveMiners);
-        if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*15 || rc.getRoundNum()<20)) {
+        if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*20 || rc.getRoundNum()<20)) {
             if(build(RobotType.MINER))
                 miners++;
         } else {
