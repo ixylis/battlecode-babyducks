@@ -65,21 +65,21 @@ public class Miner extends Robot {
                 nearbyLead[i][j] = (rc.canSenseLocation(loc=l.translate(i-2, j-2)) && !hasNearbyMiner[i+3][j+3])?rc.senseLead(loc):0;
             }
         }
-        int[] adjacentLead = new int[8];
-        for(int i=0;i<8;i++) {
-            Direction d = Robot.directions[i];
+        int[] adjacentLead = new int[9];
+        for(int i=0;i<9;i++) {
+            Direction d = Direction.allDirections()[i];
             loc = new MapLocation(2,2).add(d);
-            for(Direction d2 : Robot.directions) {
+            for(Direction d2 : Direction.allDirections()) {
                 MapLocation l2 = loc.add(d2);
                 adjacentLead[i] += nearbyLead[l2.x][l2.y];
             }
         }
-        int bestDir = -1;
-        for(int i=0;i<8;i++) {
-            if(adjacentLead[i]>0 && (bestDir==-1 || adjacentLead[bestDir] < adjacentLead[i]) && rc.canMove(Robot.directions[i]))
+        int bestDir = 0;
+        for(int i=1;i<9;i++) {
+            if(adjacentLead[i] > adjacentLead[bestDir] && rc.canMove(Direction.allDirections()[i]))
                 bestDir = i;
         }
-        if(bestDir>=0) {
+        if(bestDir>0) { //exclude CENTER
             rc.move(Robot.directions[bestDir]);
             return;
         }
