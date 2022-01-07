@@ -16,8 +16,11 @@ public class Archon extends Robot {
     private int lastTurnMoney=0;
     private int miners=0;
     public void turn() throws GameActionException {
-        int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
-        if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>miners*3 || miners<3)) {
+        //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
+        int income = rc.readSharedArray(INDEX_INCOME)/2;
+        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
+        rc.setIndicatorString("income="+income+" miners="+liveMiners);
+        if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
             if(build(RobotType.MINER))
                 miners++;
         } else {
@@ -29,7 +32,7 @@ public class Archon extends Robot {
     private boolean build(RobotType t) throws GameActionException {
         if(rc.getTeamLeadAmount(rc.getTeam()) < t.getLeadWorth(1))
             return false;
-        int o = Robot.rng.nextInt(8);
+        int o = rng.nextInt(8);
         for(int i=0;i<8;i++) {
             Direction dir = directions[(i+o)%8];
             if(rc.canBuildRobot(t, dir)) {

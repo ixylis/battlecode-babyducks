@@ -7,18 +7,21 @@ import battlecode.common.*;
 public abstract class Robot {
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
+    public static final int INDEX_LIVE_MINERS=8;
+    public static final int INDEX_INCOME=9;
     public static final boolean DEBUG=true;
-    static final Random rng = new Random(6147);
+    public final Random rng;
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
         rc = r;
+        rng = new Random(rc.getID());
     }
     void run() {
         while(true) {
             try {
                 turn();
             } catch(Exception e) {
-                e.printStackTrace();
+                rc.setIndicatorString(e.getStackTrace()[2].toString());
             }
             Clock.yield();
         }
@@ -43,7 +46,7 @@ public abstract class Robot {
         for(int i=0;i<5;i++) {
             MapLocation l = rc.getLocation().add(dd[i]);
             if(rc.onTheMap(l))
-                suitability[i] /= rc.senseRubble(l);
+                suitability[i] /= 10 + rc.senseRubble(l);
         }
         double best = 0;
         Direction bestD = null;
@@ -108,7 +111,7 @@ public abstract class Robot {
             totalWeight += possibleEnemyHQs[i].distanceSquaredTo(rc.getLocation());
         }
         if(totalWeight==0) return null;
-        int r = Robot.rng.nextInt(totalWeight);
+        int r = rng.nextInt(totalWeight);
         rc.setIndicatorString("w="+totalWeight+" r="+r);
         int i;
         for(i=0;r>=0;i++) {
@@ -128,7 +131,7 @@ public abstract class Robot {
             totalWeight += 1000000/possibleEnemyHQs[i].distanceSquaredTo(rc.getLocation());
         }
         if(totalWeight==0) return null;
-        int r = Robot.rng.nextInt(totalWeight);
+        int r = rng.nextInt(totalWeight);
         int i;
         for(i=0;r>=0;i++) {
             r -= 1000000/possibleEnemyHQs[i].distanceSquaredTo(rc.getLocation());
