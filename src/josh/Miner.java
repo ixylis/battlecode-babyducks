@@ -62,7 +62,7 @@ public class Miner extends Robot {
         int[][] nearbyLead = new int[5][5];
         for(int i=0;i<5;i++) {
             for(int j=0;j<5;j++) {
-                nearbyLead[i][j] = rc.canSenseLocation(loc=l.translate(i-2, j-2))?rc.senseLead(loc):0;
+                nearbyLead[i][j] = (rc.canSenseLocation(loc=l.translate(i-2, j-2)) && !hasNearbyMiner[i+3][j+3])?rc.senseLead(loc):0;
             }
         }
         int[] adjacentLead = new int[8];
