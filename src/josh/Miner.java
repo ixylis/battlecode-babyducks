@@ -1,5 +1,6 @@
 package josh;
 
+import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
@@ -58,39 +59,31 @@ public class Miner extends Robot {
         }
         MapLocation l = rc.getLocation();
         MapLocation loc;
-        if(rc.canSenseLocation(loc=l.translate(-2, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][5]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(0, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][3]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(0, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][7]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(2, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][5]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-2, -1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][4]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-2, 1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][6]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-1, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[4][3]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-1, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[4][7]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(1, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[6][3]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(1, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[6][7]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(2, -1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][4]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(2, 1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][6]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-2, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][3]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-2, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][7]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(2, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][3]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(2, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][7]) {
-            moveToward(loc);
-        } else if(rc.canSenseLocation(loc=l.translate(-3, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][5]) {
+        int[][] nearbyLead = new int[5][5];
+        for(int i=0;i<5;i++) {
+            for(int j=0;j<5;j++) {
+                nearbyLead[i][j] = rc.canSenseLocation(loc=l.translate(i-2, j-2))?rc.senseLead(loc):0;
+            }
+        }
+        int[] adjacentLead = new int[8];
+        for(int i=0;i<8;i++) {
+            Direction d = Robot.directions[i];
+            loc = l.add(d);
+            for(Direction d2 : Robot.directions) {
+                MapLocation l2 = loc.add(d2);
+                adjacentLead[i] += nearbyLead[l2.x][l2.y];
+            }
+        }
+        int bestDir = -1;
+        for(int i=0;i<8;i++) {
+            if(adjacentLead[i]>0 && (bestDir==-1 || adjacentLead[bestDir] < adjacentLead[i]) && rc.canMove(Robot.directions[i]))
+                bestDir = i;
+        }
+        if(bestDir>=0) {
+            rc.move(Robot.directions[bestDir]);
+            return;
+        }
+        if(rc.canSenseLocation(loc=l.translate(-3, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][5]) {
             moveToward(loc);
         } else if(rc.canSenseLocation(loc=l.translate(0, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][2]) {
             moveToward(loc);
