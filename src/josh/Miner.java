@@ -68,7 +68,7 @@ public class Miner extends Robot {
         int[] adjacentLead = new int[8];
         for(int i=0;i<8;i++) {
             Direction d = Robot.directions[i];
-            loc = l.add(d);
+            loc = new MapLocation(0,0).add(d);
             for(Direction d2 : Robot.directions) {
                 MapLocation l2 = loc.add(d2);
                 adjacentLead[i] += nearbyLead[l2.x][l2.y];
