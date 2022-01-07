@@ -7,6 +7,8 @@ import battlecode.common.*;
 public abstract class Robot {
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
+    public static final int INDEX_LIVE_MINERS=8;
+    public static final int INDEX_INCOME=9;
     public static final boolean DEBUG=true;
     public final Random rng;
     RobotController rc;
