@@ -86,9 +86,17 @@ public abstract class Robot {
         public void saveValue(int index, int value, int size) throws GameActionException{
                 int arrayLocation = index / 16;
                 int innerLocation = index % 16;
+                int storeValue = value;
+                int newSize = size;
+                if (size > 16-innerLocation){
+                        int iSize = size - (16 - location);
+                        saveValue((arrayLocation+1)*16, (1 << iSize)-1, iSize);
+                        storeValue >>= iSize;
+                        newSize = size-iSize;
+                }
                 int currentValue = rc.readSharedArray(arrayLocation);
                 int andValue = (((1 << innerLocation)-1) << (16-innerLocation)) + (1 << (16-innerLocation-size)) - 1;
-                int orValue = value << 16-innerLocation-size;
+                int orValue = storeValue << 16-innerLocation-newSize;
                 int saveValue = (currentValue&andValue) | orValue;
                 
                 rc.writeSharedArray(arrayLocation, saveValue);
@@ -97,9 +105,52 @@ public abstract class Robot {
         public int readValue(int index, int size) throws GameActionException{
                 int arrayLocation = index / 16;
                 int innerLocation = index % 16;
+                int newSize = size;
                 int arrayValue = rc.readSharedArray(arrayLocation);
-                int value = (arrayValue >> (16-innerLocation-size)) % (int)Math.pow(2, size);
+                int value = 0
+                if(size > 16-innerLocation){
+                        int iSize = size - (16-location);
+                        newSize = size-iSize;
+                        value = (arrayValue >> (16-innerLocation-newSize)) % (int)Math.pow(2, newSize);
+                        value <<= iSize
+                        value += readValue((arrayLocation+1)*16,iSize);
+                }
+                else{
+                        value = (arrayValue >> (16-innerLocation-newSize)) % (int)Math.pow(2, newSize);
+                }
                 return value;
+        }
+
+        public void move(Direction d) throws GameActionException{
+                MapLocation myLocation = rc.getLocation();
+                int forward = rc.senseRubble(myLocation.add(d));
+                int left = rc.senseRubble(myLocation.add(d.rotateLeft()));
+                int right = rc.senseRubble(myLocation.add(d.rotateRight()));
+                if(rc.senseRobotAtLocation(d) != null){
+                        forward = 101
+                }
+                if(rc.senseRobotAtLocation(d.rotateLeft()) != null){
+                        left = 101
+                }
+                if(rc.senseRobotAtLocation(d.rotateRight()) != null){
+                        right = 101
+                }
+                if(forward >= left){
+                        if(forward >= right){
+                                rc.move(d);
+                        }
+                        else{
+                                rc.move(d.rotateRight());
+                        }
+                }
+                else{
+                        if(left>=right){
+                                rc.move(d.rotateLeft());
+                        }
+                        else{
+                                rc.move(d.rotateRight());
+                        }
+                }
         }
 
 
