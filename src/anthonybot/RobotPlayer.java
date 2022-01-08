@@ -114,6 +114,15 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runArchon(RobotController rc) throws GameActionException {
+    // build soldiers if under attack
+    RobotInfo [] robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam().opponent());
+    for (RobotInfo robot : robots) {
+      if (robot.type == RobotType.SOLDIER) {
+        for (Direction dir : directions) {
+          if (rc.canBuildRobot(RobotType.SOLDIER, dir)) rc.buildRobot(RobotType.SOLDIER, dir);
+        }
+      }
+    }
     // if we have multiple archons, some shouldn't build unless we have surplus wealth
     if (rc.getArchonCount() > 1 && rc.getTeamLeadAmount(rc.getTeam()) < 150) {
       if (rng.nextInt(rc.getArchonCount()) != 0) return;
@@ -168,14 +177,16 @@ public strictfp class RobotPlayer {
     }
 
     // run away from nearby soldiers
-    RobotInfo [] robots = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+    /*
+    RobotInfo [] robots = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
     for (RobotInfo robot : robots) {
-      if (robot.team != rc.getTeam() && robot.type == RobotType.SOLDIER) {
+      if (robot.type == RobotType.SOLDIER) {
         // run away
         Direction dir = robot.location.directionTo(me);
         tryMoveImproved(rc, dir);
       }
     }
+    */
 
     // try to find nearest lead
     if (nearestLead == null) {
