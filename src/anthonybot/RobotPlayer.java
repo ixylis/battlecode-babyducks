@@ -21,6 +21,7 @@ public strictfp class RobotPlayer {
   static MapLocation hqLoc = null;
   static MapLocation enemyHqLoc = null;
 
+  static int buildersLeft = 100;
   static final int maxLead = 1000; // don't build miners if we have plenty of lead
 
   /**
@@ -78,9 +79,9 @@ public strictfp class RobotPlayer {
           case ARCHON:   runArchon(rc);  break;
           case MINER:    runMiner(rc);   break;
           case SOLDIER:  runSoldier(rc); break;
-          case LABORATORY: // Examplefuncsplayer doesn't use any of these robot types below.
-          case WATCHTOWER: // You might want to give them a try!
-          case BUILDER:
+          case LABORATORY: 
+          case WATCHTOWER: runWatchtower(rc); break;
+          case BUILDER:  runBuilder(rc); break;
           case SAGE:     break;
         }
       } catch (GameActionException e) {
@@ -107,6 +108,61 @@ public strictfp class RobotPlayer {
     // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
   }
 
+  static void runBuilder(RobotController rc) throws GameActionException {
+    rc.setIndicatorString("Cooldown: " + rc.getActionCooldownTurns());
+    MapLocation me = rc.getLocation();
+    if (hqLoc == null) {
+      RobotInfo [] robots = rc.senseNearbyRobots(2, rc.getTeam());
+      for (RobotInfo robot : robots)
+        if (robot.type == RobotType.ARCHON)
+          hqLoc = robot.location;
+    }
+    // if we can repair a building, do that
+    boolean nearbyBuilding = false;
+    RobotInfo [] friends = rc.senseNearbyRobots(5, rc.getTeam()); 
+    for (RobotInfo robot : friends) {
+      if (rc.canRepair(robot.location) && robot.health < robot.type.health) {
+        rc.setIndicatorString("Repairing building");
+        nearbyBuilding = true;
+        rc.repair(robot.location);
+      }
+    }
+
+    // try to move away from HQ
+    if (!nearbyBuilding && hqLoc != null && me.distanceSquaredTo(hqLoc) < 25) {
+      target = null;
+      Direction dir = hqLoc.directionTo(me);
+      tryMoveImproved(rc, dir);
+    }
+
+
+    // build watchtowers, but only at least 3 squares away from HQ (to avoid spawn locking)
+    if (me.distanceSquaredTo(hqLoc) >= 25 && rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
+      //rc.setIndicatorString("Trying to build a watchtower!");
+      for (Direction dir : directions)
+        if (rc.canBuildRobot(RobotType.WATCHTOWER, dir))
+          rc.buildRobot(RobotType.WATCHTOWER, dir);
+    } else {
+      rc.setIndicatorString("Not trying to build a watchtower!");
+    }
+
+    if (!nearbyBuilding) {
+      moveRandom(rc);
+    }
+  }
+
+  static void runWatchtower(RobotController rc) throws GameActionException {
+    // Try to attack someone
+    int radius = rc.getType().actionRadiusSquared;
+    Team opponent = rc.getTeam().opponent();
+    RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
+    if (enemies.length > 0) {
+      MapLocation toAttack = enemies[0].location;
+      if (rc.canAttack(toAttack))
+        rc.attack(toAttack);
+    }
+  }
+
   /**
    * Run a single turn for an Archon.
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
@@ -125,8 +181,16 @@ public strictfp class RobotPlayer {
     if (rc.getArchonCount() > 1 && rc.getTeamLeadAmount(rc.getTeam()) < 150) {
       if (rng.nextInt(rc.getArchonCount()) != 0) return;
     }
+    // build builders if we have infinity lead
+    if (rc.getTeamLeadAmount(rc.getTeam()) > maxLead && buildersLeft > 0) {
+      Direction dir = rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
+      if (rc.canBuildRobot(RobotType.BUILDER, dir)) {
+        buildersLeft --;
+        rc.buildRobot(RobotType.BUILDER, dir);
+      }
+    }
     // build miners until we see an enemy unit, after which build mostly soldiers
-    if ((rc.readSharedArray(1) != 0 && rng.nextInt(5) != 0) || rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
+    if (rc.readSharedArray(1) != 0 && rng.nextInt(5) != 0) {
       for (Direction dir : directions)
         if (rc.canBuildRobot(RobotType.SOLDIER, dir)) rc.buildRobot(RobotType.SOLDIER, dir);
     } else {
