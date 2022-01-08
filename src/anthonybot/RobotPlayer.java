@@ -254,16 +254,31 @@ public strictfp class RobotPlayer {
     radius = rc.getType().visionRadiusSquared;
     enemies = rc.senseNearbyRobots(radius, opponent);
     RobotInfo [] friends = rc.senseNearbyRobots(radius, rc.getTeam());
-    if (enemies.length > 0 && (enemies[0].type != RobotType.SOLDIER || friends.length > enemies.length)) {
-      target = null;
-      MapLocation newTarget = enemies[0].location;
-      Direction dir = rc.getLocation().directionTo(newTarget);
-      if (rc.canMove(dir)) {
-        rc.move(dir);
+    if (enemies.length > 0) {
+      if (friends.length > enemies.length) {
+        target = null;
+        MapLocation newTarget = enemies[0].location;
+        Direction dir = me.directionTo(newTarget);
+        if (rc.canMove(dir)) {
+          rc.move(dir);
+        }
+        // try to attack (maybe we've moved into range)
+        if (rc.canAttack(newTarget))
+          rc.attack(newTarget);
       }
-      // try to attack (maybe we've moved into range)
-      if (rc.canAttack(newTarget))
-        rc.attack(newTarget);
+      // run away from soldiers and toward miners
+      for (RobotInfo enemy : enemies) {
+        if (enemy.type == RobotType.SOLDIER) {
+          Direction dir = enemy.location.directionTo(me);
+          if (rc.canMove(dir)) rc.move(dir);
+        }
+      }
+      for (RobotInfo enemy : enemies) {
+        if (enemy.type == RobotType.MINER) {
+          Direction dir = me.directionTo(enemy.location);
+          if (rc.canMove(dir)) rc.move(dir);
+        }
+      }
     }
 
     // try to find enemy HQ
