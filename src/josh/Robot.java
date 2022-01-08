@@ -194,12 +194,12 @@ public abstract class Robot {
         for(int i=INDEX_ENEMY_LOCATION;i<INDEX_ENEMY_LOCATION+NUM_ENEMY_SOLDIER_CHUNKS;i++) {
             int x = rc.readSharedArray(i);
             if((x&0xff)==0xff) continue;
-            if(((0x40+(rc.getRoundNum()&0x3f) - (x>>8))&0x3f) > 32 || rc.getRoundNum()<2)
+            if(((0x40+(rc.getRoundNum()&0x3f) - (x>>8))&0x3f) > 8 || rc.getRoundNum()<2)
                 rc.writeSharedArray(i, 0xff);
         }
     }
     void updateEnemySoliderLocations() throws GameActionException {
-        MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_SOLDIER_CHUNKS];
+        //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_SOLDIER_CHUNKS];
         int[] enemySoldierChunks = new int[NUM_ENEMY_SOLDIER_CHUNKS];
         
         for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {

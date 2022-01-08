@@ -21,7 +21,7 @@ public class Soldier extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 190, 0, 190);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
         
     }
     private void movement() throws GameActionException {
@@ -29,10 +29,16 @@ public class Soldier extends Robot {
         boolean existsSoldier=false;
         int enemySoldierCount=0;
         int friendlySoldierCount=0;
+        int adjacentFriendlySoldierCount = 0;
         MapLocation away=rc.getLocation();
+        MapLocation nearbyFriend = null;
         for(RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam())) {
-            if(r.type == RobotType.SOLDIER)
+            if(r.type == RobotType.SOLDIER) {
+                nearbyFriend = r.location;
                 friendlySoldierCount++;
+                if(r.location.distanceSquaredTo(rc.getLocation())<3)
+                    adjacentFriendlySoldierCount++;
+            }
         }
         if(enemies.length>0) {
             for(RobotInfo r : enemies) {
@@ -45,6 +51,10 @@ public class Soldier extends Robot {
             }
             if(enemySoldierCount>friendlySoldierCount) {
                 moveToward(away);
+                return;
+            }
+            if(enemySoldierCount+1<adjacentFriendlySoldierCount) {
+                moveToward(enemies[0].location);
                 return;
             }
             if(existsSoldier && rc.isMovementReady()) {
@@ -67,18 +77,20 @@ public class Soldier extends Robot {
                 return;
             }
         } else {
-            MapLocation x = super.getNearestEnemyChunk();
-            if(x!=null) movementTarget=x;
             if(movementTarget!=null && rc.canSenseLocation(movementTarget))
                 movementTarget=null;
+            MapLocation x = super.getNearestEnemyChunk();
+            if(x!=null) movementTarget=x;
             if(movementTarget==null)
                 movementTarget = super.getRandomKnownEnemyHQ();
             if(movementTarget==null)
                 movementTarget = super.getRandomPossibleEnemyHQ();
-            if(movementTarget==null)
-                wander();
-            else
+            
+            if(rc.getLocation().distanceSquaredTo(movementTarget)>64 || adjacentFriendlySoldierCount>0)
                 moveToward(movementTarget);
+            else {
+                moveToward(nearbyFriend);
+            }
         }
     }
     public void attack() throws GameActionException {
