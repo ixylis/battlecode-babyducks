@@ -2,6 +2,7 @@ package josh;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 import battlecode.common.RobotType;
 
@@ -19,13 +20,18 @@ public class Archon extends Robot {
         //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
-        rc.setIndicatorString("income="+income+" miners="+liveMiners);
+        if(DEBUG) {
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            rc.setIndicatorString("income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
+        }
         if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
             if(build(RobotType.MINER))
                 miners++;
         } else {
             build(RobotType.SOLDIER);
         }
+        super.removeOldEnemySoldierLocations();
+        super.updateEnemySoliderLocations();
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
     }
     //builds in a random direction if legal

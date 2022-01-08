@@ -10,6 +10,7 @@ public abstract class Robot {
     public static final int INDEX_LIVE_MINERS=8;
     public static final int INDEX_INCOME=9;
     public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
+    public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
     /*
      * intention is for each enemy seen within the last 20 rounds is in here
      * but only put distinct entries if they are more than 4 tiles apart.
@@ -95,7 +96,12 @@ public abstract class Robot {
         if(rc.getLocation().distanceSquaredTo(wanderTarget) < old.distanceSquaredTo(wanderTarget))
             lastWanderProgress = rc.getRoundNum();
     }
-    
+    public static final int chunkToInt(MapLocation l) {
+        return ((l.x>>2)<<4) | (l.y>>2);
+    }
+    public static final MapLocation intToChunk(int x) {
+        return new MapLocation((((x>>4)&0xf)<<2)+1 , ((x&0xf)<<2)+1);
+    }
     public static final int locToInt(MapLocation l) {
         return (l.x<<7) | l.y | 0x4000;
     }
@@ -183,5 +189,57 @@ public abstract class Robot {
             if(needsUpdating[i]!=null)
                 rc.writeSharedArray(i+Robot.INDEX_ENEMY_HQ, 0);
         }
+    }
+    void removeOldEnemySoldierLocations() throws GameActionException {
+        for(int i=INDEX_ENEMY_LOCATION;i<INDEX_ENEMY_LOCATION+NUM_ENEMY_SOLDIER_CHUNKS;i++) {
+            int x = rc.readSharedArray(i);
+            if((x&0xff)==0xff) continue;
+            if(((0x40+(rc.getRoundNum()&0x3f) - (x>>8))&0x3f) > 32 || rc.getRoundNum()<2)
+                rc.writeSharedArray(i, 0xff);
+        }
+    }
+    void updateEnemySoliderLocations() throws GameActionException {
+        MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_SOLDIER_CHUNKS];
+        int[] enemySoldierChunks = new int[NUM_ENEMY_SOLDIER_CHUNKS];
+        
+        for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
+            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+i));
+            int x = rc.readSharedArray(INDEX_ENEMY_LOCATION+i);
+            enemySoldierChunks[i] = x&0xff;
+            
+        }
+        for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
+            if(r.type == RobotType.SOLDIER) {
+                int x = Robot.chunkToInt(r.location);
+                boolean found=false;
+                for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
+                    if(enemySoldierChunks[i] == x) {
+                        found=true;
+                        break;
+                    }
+                }
+                if(!found) {
+                    for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
+                        if(enemySoldierChunks[i] == 0xff) {//0xff is the empty slot code
+                            rc.writeSharedArray(i+Robot.INDEX_ENEMY_LOCATION, x | ((rc.getRoundNum()&0x3f)<<8));
+                            return;
+                        }
+                    }
+                    
+                }
+            }
+        }
+    }
+    MapLocation getNearestEnemyChunk() throws GameActionException {
+        MapLocation nearest = null;
+        for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
+            int x1 = rc.readSharedArray(INDEX_ENEMY_LOCATION+i);
+            if(x1==0xff) continue;
+            MapLocation x = Robot.intToChunk(x1);
+            if(nearest==null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
+                nearest = x;
+            }
+        }
+        return nearest;
     }
 }

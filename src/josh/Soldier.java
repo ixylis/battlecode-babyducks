@@ -14,6 +14,17 @@ public class Soldier extends Robot {
     }
     private MapLocation movementTarget = null;
     public void turn() throws GameActionException {
+        if(rc.isMovementReady())
+            movement();
+        else
+            super.updateEnemySoliderLocations();
+        if(rc.isActionReady()) attack();
+        super.updateEnemyHQs();
+        //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 190, 0, 190);
+        
+    }
+    private void movement() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
         boolean existsSoldier=false;
         int enemySoldierCount=0;
@@ -32,8 +43,10 @@ public class Soldier extends Robot {
                     away=away.translate(rc.getLocation().x-r.location.x, rc.getLocation().y-r.location.y);
                 }
             }
-            if(enemySoldierCount>friendlySoldierCount)
+            if(enemySoldierCount>friendlySoldierCount) {
                 moveToward(away);
+                return;
+            }
             if(existsSoldier && rc.isMovementReady()) {
                 int minRubble = rc.senseRubble(rc.getLocation());
                 Direction minRubbleDir = Direction.CENTER;
@@ -44,11 +57,18 @@ public class Soldier extends Robot {
                         minRubbleDir = d;
                     }
                 }
-                if(minRubbleDir != Direction.CENTER)
+                if(minRubbleDir != Direction.CENTER) {
                     rc.move(minRubbleDir);
+                    return;
+                }
             }
-            if(!existsSoldier && rc.isMovementReady()) moveToward(enemies[0].location);
+            if(!existsSoldier) {
+                moveToward(enemies[0].location);
+                return;
+            }
         } else {
+            MapLocation x = super.getNearestEnemyChunk();
+            if(x!=null) movementTarget=x;
             if(movementTarget!=null && rc.canSenseLocation(movementTarget))
                 movementTarget=null;
             if(movementTarget==null)
@@ -60,9 +80,6 @@ public class Soldier extends Robot {
             else
                 moveToward(movementTarget);
         }
-        if(rc.isActionReady()) attack();
-        super.updateEnemyHQs();
-        rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
     }
     public void attack() throws GameActionException {
         int radius = rc.getType().actionRadiusSquared;

@@ -12,8 +12,11 @@ public class Miner extends Robot {
     Miner(RobotController r) throws GameActionException {
         super(r);
     }
-    public void turn() throws GameActionException {
-        movement();
+    public void turn() throws GameActionException { 
+        if(rc.isMovementReady())
+            movement();
+        else
+            super.updateEnemySoliderLocations();
         mine();
         if(rc.getRoundNum()%2 != rc.readSharedArray(INDEX_LIVE_MINERS)%2) {
             rc.writeSharedArray(INDEX_LIVE_MINERS, 2+rc.getRoundNum()%2);
