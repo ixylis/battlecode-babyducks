@@ -162,38 +162,68 @@ public strictfp class RobotPlayer {
     }
   }
 
+  static boolean spawn(RobotController rc, RobotType type, Direction preferredDir) throws GameActionException {
+    Direction dir = preferredDir;
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.rotateLeft();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.rotateRight();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.rotateLeft().rotateLeft();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.rotateRight().rotateRight();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.opposite().rotateRight();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.opposite().rotateLeft();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    dir = preferredDir.opposite();
+    if (rc.canBuildRobot(type, dir)) {rc.buildRobot(type, dir); return true;}
+    return false;
+  }
+
   /**
    * Run a single turn for an Archon.
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runArchon(RobotController rc) throws GameActionException {
+    MapLocation me = rc.getLocation();
+    // compute preferred direction for spawning
+    Direction preferredSoldier = me.directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
+    nearestLead = null;
+    for (int n = 1; n < 5; n ++) {
+      nearestLead = findLead(rc, n);
+      if (nearestLead != null) {
+        break;
+      }
+    }
+    Direction preferredMiner = preferredSoldier;
+    if (nearestLead != null) preferredMiner = me.directionTo(nearestLead);
     // build soldiers if under attack
     RobotInfo [] robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam().opponent());
     for (RobotInfo robot : robots) {
       if (robot.type == RobotType.SOLDIER) {
-        for (Direction dir : directions) {
-          if (rc.canBuildRobot(RobotType.SOLDIER, dir)) rc.buildRobot(RobotType.SOLDIER, dir);
-        }
+        spawn(rc, RobotType.SOLDIER, me.directionTo(robot.location));
       }
     }
     // if we have multiple archons, some shouldn't build unless we have surplus wealth
     if (rc.getArchonCount() > 1 && rc.getTeamLeadAmount(rc.getTeam()) < 150) {
       if (rng.nextInt(rc.getArchonCount()) != 0) return;
     }
+    robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam());
+    int numBuilders = 0;
+    for (RobotInfo robot : robots) if (robot.type == RobotType.BUILDER) numBuilders ++;
     // build builders if we have infinity lead
     if (rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
-      Direction dir = rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
-      if (rc.canBuildRobot(RobotType.BUILDER, dir)) {
-        rc.buildRobot(RobotType.BUILDER, dir);
-      }
+      if (rc.canBuildRobot(RobotType.BUILDER, preferredSoldier)) rc.buildRobot(RobotType.BUILDER, preferredSoldier);
+      if (rc.getTeamLeadAmount(rc.getTeam()) > maxLead * (numBuilders + 1))
+        spawn(rc, RobotType.BUILDER, preferredSoldier);
     }
     // build miners until we see an enemy unit, after which build mostly soldiers
     if (rc.readSharedArray(1) != 0 && rng.nextInt(5) != 0) {
-      for (Direction dir : directions)
-        if (rc.canBuildRobot(RobotType.SOLDIER, dir)) rc.buildRobot(RobotType.SOLDIER, dir);
+      spawn(rc, RobotType.SOLDIER, preferredSoldier);
     } else {
-      for (Direction dir : directions)
-        if (rc.canBuildRobot(RobotType.MINER, dir)) rc.buildRobot(RobotType.MINER, dir);
+      spawn(rc, RobotType.MINER, preferredMiner);
     }
   }
 
@@ -234,7 +264,7 @@ public strictfp class RobotPlayer {
 
     // try to find nearest lead
     if (nearestLead == null) {
-      for (int n = 1; n < 3; n ++) {
+      for (int n = 1; n < 4; n ++) {
         nearestLead = findLead(rc, n);
         if (nearestLead != null) {
           target = null;
