@@ -21,7 +21,6 @@ public strictfp class RobotPlayer {
   static MapLocation hqLoc = null;
   static MapLocation enemyHqLoc = null;
 
-  static int buildersLeft = 100;
   static final int maxLead = 1000; // don't build miners if we have plenty of lead
 
   /**
@@ -140,7 +139,7 @@ public strictfp class RobotPlayer {
     if (me.distanceSquaredTo(hqLoc) >= 25 && rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
       //rc.setIndicatorString("Trying to build a watchtower!");
       for (Direction dir : directions)
-        if (rc.canBuildRobot(RobotType.WATCHTOWER, dir))
+        if (rc.canBuildRobot(RobotType.WATCHTOWER, dir) && ((me.add(dir).x + me.add(dir).y) & 1) == 0)
           rc.buildRobot(RobotType.WATCHTOWER, dir);
     } else {
       rc.setIndicatorString("Not trying to build a watchtower!");
@@ -182,10 +181,9 @@ public strictfp class RobotPlayer {
       if (rng.nextInt(rc.getArchonCount()) != 0) return;
     }
     // build builders if we have infinity lead
-    if (rc.getTeamLeadAmount(rc.getTeam()) > maxLead && buildersLeft > 0) {
+    if (rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
       Direction dir = rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
       if (rc.canBuildRobot(RobotType.BUILDER, dir)) {
-        buildersLeft --;
         rc.buildRobot(RobotType.BUILDER, dir);
       }
     }
