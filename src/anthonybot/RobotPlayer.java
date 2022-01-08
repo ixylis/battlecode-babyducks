@@ -232,6 +232,8 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runMiner(RobotController rc) throws GameActionException {
+    // reset target every 128 turns
+    if ((turnCount & 0x7F) == 0) { target = null; nearestLead = null;}
     if (hqLoc == null) {
       RobotInfo [] robots = rc.senseNearbyRobots(2, rc.getTeam());
       for (RobotInfo robot : robots)
@@ -318,6 +320,8 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runSoldier(RobotController rc) throws GameActionException {
+    // reset target every 128 turns
+    if ((turnCount & 0x7F) == 0) target = null;
     MapLocation me = rc.getLocation();
     if (hqLoc == null) {
       RobotInfo [] robots = rc.senseNearbyRobots(2, rc.getTeam());
