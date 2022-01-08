@@ -19,6 +19,11 @@ public strictfp class RobotPlayer {
   static MapLocation nearestLead = null;
   static MapLocation target = null;
   static MapLocation hqLoc = null;
+  static MapLocation enemyHqLoc = null;
+  static int minersBuilt = 0;
+
+  static final int initialMiners = 10; // miners to build initially
+  static final int maxLead = 1000; // don't build miners if we have plenty of lead
 
   /**
    * A random number generator.
@@ -111,12 +116,13 @@ public strictfp class RobotPlayer {
   static void runArchon(RobotController rc) throws GameActionException {
     // Pick a direction to build in.
     for (Direction dir : directions) {
-      if (rng.nextBoolean()) {
+      if (rc.getTeamLeadAmount(rc.getTeam()) < maxLead && (minersBuilt < initialMiners || rng.nextBoolean())) {
         // Let's try to build a miner.
         // Only build miners if we can also afford a soldier (otherwise we never build soldiers)
         rc.setIndicatorString("Trying to build a miner");
-        if (rc.canBuildRobot(RobotType.SOLDIER, dir)) {
+        if (rc.canBuildRobot(RobotType.SOLDIER, dir) || (rc.canBuildRobot(RobotType.MINER, dir) && minersBuilt < initialMiners)) {
           rc.buildRobot(RobotType.MINER, dir);
+          minersBuilt ++;
         }
       } else {
         // Let's try to build a soldier.
@@ -154,6 +160,16 @@ public strictfp class RobotPlayer {
         while (rc.canMineLead(mineLocation) && rc.senseLead(mineLocation) > 1) {
           rc.mineLead(mineLocation);
         }
+      }
+    }
+
+    // run away from nearby soldiers
+    RobotInfo [] robots = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+    for (RobotInfo robot : robots) {
+      if (robot.team != rc.getTeam() && robot.type == RobotType.SOLDIER) {
+        // run away
+        Direction dir = robot.location.directionTo(me);
+        if (rc.canMove(dir)) rc.move(dir);
       }
     }
 
@@ -218,6 +234,7 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runSoldier(RobotController rc) throws GameActionException {
+    MapLocation me = rc.getLocation();
     if (hqLoc == null) {
       RobotInfo [] robots = rc.senseNearbyRobots(2, rc.getTeam());
       for (RobotInfo robot : robots)
@@ -230,24 +247,59 @@ public strictfp class RobotPlayer {
     RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
     if (enemies.length > 0) {
       MapLocation toAttack = enemies[0].location;
-      if (rc.canAttack(toAttack)) {
+      if (rc.canAttack(toAttack))
         rc.attack(toAttack);
-      }
     }
 
     radius = rc.getType().visionRadiusSquared;
     enemies = rc.senseNearbyRobots(radius, opponent);
-    if (enemies.length > 0 && enemies[0].type != RobotType.SOLDIER) {
+    RobotInfo [] friends = rc.senseNearbyRobots(radius, rc.getTeam());
+    if (enemies.length > 0 && (enemies[0].type != RobotType.SOLDIER || friends.length > enemies.length)) {
       target = null;
       MapLocation newTarget = enemies[0].location;
       Direction dir = rc.getLocation().directionTo(newTarget);
       if (rc.canMove(dir)) {
         rc.move(dir);
       }
+      // try to attack (maybe we've moved into range)
+      if (rc.canAttack(newTarget))
+        rc.attack(newTarget);
+    }
+
+    // try to find enemy HQ
+    int enemyHqLocCode = rc.readSharedArray(0);
+    if (enemyHqLoc == null) {
+      // read from shared array
+      if ((enemyHqLocCode & 0x1FFF) != 0) {
+        int x = (enemyHqLocCode >> 6) & 0x3F;
+        int y = enemyHqLocCode & 0x3F;
+        enemyHqLoc = new MapLocation(x, y);
+      } else {
+        for (RobotInfo enemy : enemies) {
+          if (enemy.team == opponent && enemy.type == RobotType.ARCHON) {
+            enemyHqLoc = enemy.location;
+            int x = enemyHqLoc.x;
+            int y = enemyHqLoc.y;
+            enemyHqLocCode = (1 << 12) | (x << 6) | y;
+            rc.writeSharedArray(0, enemyHqLocCode);
+          }
+        }
+      }
+    } else {
+      if ((enemyHqLocCode & 0x1FFF) == 0) enemyHqLoc = null;
+      else if (rc.canSenseLocation(enemyHqLoc)) {
+        RobotInfo enemyHq = rc.senseRobotAtLocation(enemyHqLoc);
+        if (enemyHq == null || enemyHq.team == rc.getTeam() || enemyHq.type != RobotType.ARCHON) rc.writeSharedArray(0, 0);
+      } else {
+        // move toward enemy HQ if we're surrounded by more friends than enemies
+        if (friends.length > enemies.length) {
+          Direction dir = me.directionTo(enemyHqLoc);
+          if (rc.canMove(dir)) rc.move(dir);
+        }
+      }
     }
 
     // try to move away from HQ
-    MapLocation me = rc.getLocation();
     if (hqLoc != null && me.distanceSquaredTo(hqLoc) < 9) {
       target = null;
       Direction dir = hqLoc.directionTo(me);
