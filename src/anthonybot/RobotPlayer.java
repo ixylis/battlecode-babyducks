@@ -114,6 +114,10 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runArchon(RobotController rc) throws GameActionException {
+    // if we have multiple archons, some shouldn't build unless we have surplus wealth
+    if (rc.getArchonCount() > 1 && rc.getTeamLeadAmount(rc.getTeam()) < 150) {
+      if (rng.nextInt(rc.getArchonCount()) != 0) return;
+    }
     // Pick a direction to build in.
     for (Direction dir : directions) {
       if (rc.getTeamLeadAmount(rc.getTeam()) < maxLead && (minersBuilt < initialMiners || rng.nextBoolean())) {
@@ -169,7 +173,7 @@ public strictfp class RobotPlayer {
       if (robot.team != rc.getTeam() && robot.type == RobotType.SOLDIER) {
         // run away
         Direction dir = robot.location.directionTo(me);
-        if (rc.canMove(dir)) rc.move(dir);
+        tryMoveImproved(rc, dir);
       }
     }
 
@@ -188,14 +192,14 @@ public strictfp class RobotPlayer {
 
     if (nearestLead != null) {
       Direction dir = me.directionTo(nearestLead);
-      if (rc.canMove(dir)) rc.move(dir);
+      tryMoveImproved(rc, dir);
     }
 
     // try to move away from HQ
     if (hqLoc != null && me.distanceSquaredTo(hqLoc) < 9) {
       target = null;
       Direction dir = hqLoc.directionTo(me);
-      if (rc.canMove(dir)) rc.move(dir);
+      tryMoveImproved(rc, dir);
     }
     
     // pick a random target on the map and go there
@@ -205,16 +209,11 @@ public strictfp class RobotPlayer {
     if (me.distanceSquaredTo(target) < 9) target = null;
     if (target != null) {
       Direction dir = me.directionTo(target);
-      if (rc.canMove(dir))
-        rc.move(dir);
+      tryMoveImproved(rc, dir);
     }
 
     // Also try to move randomly.
-    Direction dir = directions[rng.nextInt(directions.length)];
-    if (rc.canMove(dir)) {
-      rc.move(dir);
-      System.out.println("I moved!");
-    }
+    moveRandom(rc);
   }
 
   // find lead within n squares of robot
@@ -259,9 +258,7 @@ public strictfp class RobotPlayer {
         target = null;
         MapLocation newTarget = enemies[0].location;
         Direction dir = me.directionTo(newTarget);
-        if (rc.canMove(dir)) {
-          rc.move(dir);
-        }
+        tryMoveImproved(rc, dir);
         // try to attack (maybe we've moved into range)
         if (rc.canAttack(newTarget))
           rc.attack(newTarget);
@@ -270,13 +267,13 @@ public strictfp class RobotPlayer {
       for (RobotInfo enemy : enemies) {
         if (enemy.type == RobotType.SOLDIER) {
           Direction dir = enemy.location.directionTo(me);
-          if (rc.canMove(dir)) rc.move(dir);
+          tryMoveImproved(rc, dir);
         }
       }
       for (RobotInfo enemy : enemies) {
         if (enemy.type == RobotType.MINER) {
           Direction dir = me.directionTo(enemy.location);
-          if (rc.canMove(dir)) rc.move(dir);
+          tryMoveImproved(rc, dir);
         }
       }
     }
@@ -309,7 +306,7 @@ public strictfp class RobotPlayer {
         // move toward enemy HQ if we're surrounded by more friends than enemies
         if (friends.length > enemies.length) {
           Direction dir = me.directionTo(enemyHqLoc);
-          if (rc.canMove(dir)) rc.move(dir);
+          tryMoveImproved(rc, dir);
         }
       }
     }
@@ -318,7 +315,7 @@ public strictfp class RobotPlayer {
     if (hqLoc != null && me.distanceSquaredTo(hqLoc) < 9) {
       target = null;
       Direction dir = hqLoc.directionTo(me);
-      if (rc.canMove(dir)) rc.move(dir);
+      tryMoveImproved(rc, dir);
     }
 
     // pick a random target on the map and go there
@@ -328,15 +325,76 @@ public strictfp class RobotPlayer {
     if (me.distanceSquaredTo(target) < 9) target = null;
     if (target != null) {
       Direction dir = me.directionTo(target);
-      if (rc.canMove(dir))
-        rc.move(dir);
+      tryMoveImproved(rc, dir);
     }
 
     // Also try to move randomly.
-    Direction dir = directions[rng.nextInt(directions.length)];
-    if (rc.canMove(dir)) {
-      rc.move(dir);
-      System.out.println("I moved!");
-    }
+    moveRandom(rc);
   }
+
+  static void tryMove(RobotController rc, Direction dir) throws GameActionException {
+    if (rc.canMove(dir)) rc.move(dir);
+  }
+
+  static void tryMoveImproved(RobotController rc, Direction dir) throws GameActionException {
+    double penalty = 2.0; // for moving 45-degree rotation from target
+    MapLocation me = rc.getLocation();
+    Direction bestDir = null;
+    double moveCost = Double.MAX_VALUE;
+    if (rc.canMove(dir)) {
+      if (rc.senseRubble(me.add(dir)) < 20) {
+        rc.move(dir);
+        return;
+      } else {
+        bestDir = dir;
+        moveCost = 1 + rc.senseRubble(me.add(dir)) / 20.0;
+      }
+    }
+    Direction newDir = dir.rotateLeft();
+    if (rc.canMove(newDir)) {
+      double newCost = (1 + rc.senseRubble(me.add(newDir)) / 20.0) * penalty;
+      if (newCost < moveCost) {
+        moveCost = newCost;
+        bestDir = newDir;
+      }
+    }
+    newDir = dir.rotateRight();
+    if (rc.canMove(newDir)) {
+      double newCost = (1 + rc.senseRubble(me.add(newDir)) / 20.0) * penalty;
+      if (newCost < moveCost) {
+        moveCost = newCost;
+        bestDir = newDir;
+      }
+    }
+    rc.move(bestDir);
+  }
+
+  static void moveRandom(RobotController rc) throws GameActionException {
+    Direction dir = directions[rng.nextInt(directions.length)];
+    tryMoveImproved(rc, dir);
+  }
+
+  // move to a square weighted by exp(-rubble * beta)
+  static void moveWeightedRandom(RobotController rc, double beta) throws GameActionException {
+    MapLocation me = rc.getLocation();
+    // compute partition function
+    double Z = 0;
+    for (Direction dir : directions) {
+      if (rc.canMove(dir)) {
+        MapLocation newLoc = me.add(dir);
+        Z += Math.exp(-rc.senseRubble(newLoc) * beta);
+      }
+    }
+    Z *= rng.nextDouble();
+    double cumsum = 0;
+    for (Direction dir : directions) {
+      if (rc.canMove(dir)) {
+        MapLocation newLoc = me.add(dir);
+        cumsum += Math.exp(-rc.senseRubble(newLoc) * beta);
+        if (cumsum > Z) rc.move(dir);
+      }
+    }
+
+  }
+
 }
