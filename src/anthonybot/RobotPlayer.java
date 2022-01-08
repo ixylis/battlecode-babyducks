@@ -20,9 +20,7 @@ public strictfp class RobotPlayer {
   static MapLocation target = null;
   static MapLocation hqLoc = null;
   static MapLocation enemyHqLoc = null;
-  static int minersBuilt = 0;
 
-  static final int initialMiners = 10; // miners to build initially
   static final int maxLead = 1000; // don't build miners if we have plenty of lead
 
   /**
@@ -127,23 +125,13 @@ public strictfp class RobotPlayer {
     if (rc.getArchonCount() > 1 && rc.getTeamLeadAmount(rc.getTeam()) < 150) {
       if (rng.nextInt(rc.getArchonCount()) != 0) return;
     }
-    // Pick a direction to build in.
-    for (Direction dir : directions) {
-      if (rc.getTeamLeadAmount(rc.getTeam()) < maxLead && (minersBuilt < initialMiners || rng.nextBoolean())) {
-        // Let's try to build a miner.
-        // Only build miners if we can also afford a soldier (otherwise we never build soldiers)
-        rc.setIndicatorString("Trying to build a miner");
-        if (rc.canBuildRobot(RobotType.SOLDIER, dir) || (rc.canBuildRobot(RobotType.MINER, dir) && minersBuilt < initialMiners)) {
-          rc.buildRobot(RobotType.MINER, dir);
-          minersBuilt ++;
-        }
-      } else {
-        // Let's try to build a soldier.
-        rc.setIndicatorString("Trying to build a soldier");
-        if (rc.canBuildRobot(RobotType.SOLDIER, dir)) {
-          rc.buildRobot(RobotType.SOLDIER, dir);
-        }
-      }
+    // build miners until we see an enemy unit, after which build mostly soldiers
+    if ((rc.readSharedArray(1) != 0 && rng.nextInt(5) != 0) || rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
+      for (Direction dir : directions)
+        if (rc.canBuildRobot(RobotType.SOLDIER, dir)) rc.buildRobot(RobotType.SOLDIER, dir);
+    } else {
+      for (Direction dir : directions)
+        if (rc.canBuildRobot(RobotType.MINER, dir)) rc.buildRobot(RobotType.MINER, dir);
     }
   }
 
@@ -176,17 +164,11 @@ public strictfp class RobotPlayer {
       }
     }
 
-    // run away from nearby soldiers
-    /*
-    RobotInfo [] robots = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
-    for (RobotInfo robot : robots) {
-      if (robot.type == RobotType.SOLDIER) {
-        // run away
-        Direction dir = robot.location.directionTo(me);
-        tryMoveImproved(rc, dir);
-      }
+    // scout for enemy units
+    if (rc.readSharedArray(1) == 0) {
+      RobotInfo [] robots = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
+      if (robots.length > 0) rc.writeSharedArray(1, 1);
     }
-    */
 
     // try to find nearest lead
     if (nearestLead == null) {
