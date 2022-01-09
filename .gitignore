@@ -21,8 +21,9 @@ build/*
 *.iws
 /.idea/
 gradle.properties
-/src/_
+/src/_*
 /src/*.zip
+/tmp/*
 
 
 # User-specific stuff:
