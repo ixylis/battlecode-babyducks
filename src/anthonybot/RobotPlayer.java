@@ -126,6 +126,9 @@ public strictfp class RobotPlayer {
         rc.repair(robot.location);
       }
     }
+    // suicide mission
+    if (me.distanceSquaredTo(hqLoc) <= 18 && rc.getTeamLeadAmount(rc.getTeam()) < 100 && rc.senseLead(me) == 0)
+      rc.disintegrate();
 
     // try to move away from HQ
     if (!nearbyBuilding && hqLoc != null && me.distanceSquaredTo(hqLoc) < 25) {
@@ -214,13 +217,36 @@ public strictfp class RobotPlayer {
         spawn(rc, RobotType.SOLDIER, me.directionTo(robot.location));
       }
     }
+    // if there are few units and little lead around HQ, spawn a builder to suicide into lead
+    int numLead = 0;
+    for (int dx = -5; dx <= 5; dx ++) {
+      for (int dy = -5; dy <= 5; dy ++) {
+        MapLocation mineLocation = new MapLocation(me.x + dx, me.y + dy);
+        if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0) numLead ++;
+      }
+    }
+    if (turnCount > 100 && rc.senseNearbyRobots().length < 5 && rc.getTeamLeadAmount(rc.getTeam()) < 100) {
+      if (numLead < 20) {
+        for (Direction dir : directions)
+          if (((rc.canSenseLocation(me.add(dir)) && rc.senseLead(me.add(dir)) == 0)
+              || (rc.canSenseLocation(me.add(dir).add(dir)) && rc.senseLead(me.add(dir).add(dir)) == 0))
+              && rc.canBuildRobot(RobotType.BUILDER, dir))
+            rc.buildRobot(RobotType.BUILDER, dir);
+      }
+    }
     // if we have multiple archons, some shouldn't build unless we have surplus wealth
     if (rc.getArchonCount() > 1 && rc.getTeamLeadAmount(rc.getTeam()) < 150) {
       if (rng.nextInt(rc.getArchonCount()) != 0) return;
     }
     robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam());
     int numBuilders = 0;
-    for (RobotInfo robot : robots) if (robot.type == RobotType.BUILDER) numBuilders ++;
+    int numMiners = 0;
+    for (RobotInfo robot : robots) {
+      if (robot.type == RobotType.BUILDER) numBuilders ++;
+      if (robot.type == RobotType.MINER) numMiners ++;
+    }
+    if (numLead > 4 * numMiners && rc.getTeamLeadAmount(rc.getTeam()) < 1000)
+      spawn(rc, RobotType.MINER, preferredMiner);
     // build builders if we have infinity lead
     if (rc.getTeamLeadAmount(rc.getTeam()) > maxLead) {
       if (rc.canBuildRobot(RobotType.BUILDER, preferredSoldier)) rc.buildRobot(RobotType.BUILDER, preferredSoldier);
