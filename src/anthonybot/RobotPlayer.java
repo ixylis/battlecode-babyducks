@@ -279,7 +279,11 @@ public strictfp class RobotPlayer {
 
     if (nearestLead != null) {
       Direction dir = me.directionTo(nearestLead);
-      tryMoveImproved(rc, dir);
+      if (me.distanceSquaredTo(nearestLead) > rc.getType().actionRadiusSquared
+          || rc.canMove(dir) && rc.senseRubble(me) >= rc.senseRubble(me.add(dir)))
+        tryMoveImproved(rc, dir);
+      else
+        return;
     }
 
     // try to move away from HQ
@@ -459,6 +463,7 @@ public strictfp class RobotPlayer {
   }
 
   static void moveRandom(RobotController rc) throws GameActionException {
+    rc.setIndicatorString("Moved randomly!");
     Direction dir = directions[rng.nextInt(directions.length)];
     tryMoveImproved(rc, dir);
   }
