@@ -182,12 +182,20 @@ public strictfp class RobotPlayer {
     return false;
   }
 
+  // broadcast HQ location
+  static void broadcastLocation(RobotController rc, MapLocation loc) throws GameActionException {
+    int arrayIndex = 60;
+    while (arrayIndex < 64 && rc.readSharedArray(arrayIndex) != 0) arrayIndex ++;
+    rc.writeSharedArray(arrayIndex, (1 << 12) | (loc.x << 6) | loc.y);
+  }
+
   /**
    * Run a single turn for an Archon.
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runArchon(RobotController rc) throws GameActionException {
     MapLocation me = rc.getLocation();
+    if (turnCount == 1) broadcastLocation(rc, me);
     // compute preferred direction for spawning
     Direction preferredSoldier = me.directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
     nearestLead = null;
@@ -227,11 +235,63 @@ public strictfp class RobotPlayer {
     }
   }
 
+  // check possible enemy HQ locations
+  // TODO: Reuse some of this from turn to turn
+  static void scoutHqReflections (RobotController rc) throws GameActionException {
+    int height = rc.getMapHeight() - 1;
+    int width = rc.getMapWidth() - 1;
+    for (int index = 60; index < 64; index ++) {
+      if (rc.readSharedArray(index) != 0) {
+        int value = rc.readSharedArray(index);
+        int x = (value >> 6) & 0x3F;
+        int y = value & 0x3F;
+        if (((value >> 13) & 1) == 0) {
+          MapLocation possibleEnemyHq = new MapLocation(x, height - y); // vertical reflection
+          if (rc.canSenseLocation(possibleEnemyHq)) {
+            RobotInfo putativeEnemyHq = rc.senseRobotAtLocation(possibleEnemyHq);
+            if (putativeEnemyHq == null || putativeEnemyHq.team == rc.getTeam() || putativeEnemyHq.type != RobotType.ARCHON)
+              rc.writeSharedArray(index, value | (1 << 13));
+          }
+        }
+        if (((value >> 14) & 1) == 0) {
+          MapLocation possibleEnemyHq = new MapLocation(width - x, height); // horizontal reflection
+          if (rc.canSenseLocation(possibleEnemyHq)) {
+            RobotInfo putativeEnemyHq = rc.senseRobotAtLocation(possibleEnemyHq);
+            if (putativeEnemyHq == null || putativeEnemyHq.team == rc.getTeam() || putativeEnemyHq.type != RobotType.ARCHON)
+              rc.writeSharedArray(index, value | (1 << 14));
+          }
+        }
+        if (((value >> 15) & 1) == 0) {
+          MapLocation possibleEnemyHq = new MapLocation(width - x, height - y); // rotation
+          if (rc.canSenseLocation(possibleEnemyHq)) {
+            RobotInfo putativeEnemyHq = rc.senseRobotAtLocation(possibleEnemyHq);
+            if (putativeEnemyHq == null || putativeEnemyHq.team == rc.getTeam() || putativeEnemyHq.type != RobotType.ARCHON)
+              rc.writeSharedArray(index, value | (1 << 15));
+          }
+        }
+        // if two of these are nonzero, then the third is the HQ location
+        if (enemyHqLoc == null) {
+          if (((value >> 13) & 1) == 1 && ((value >> 14) & 1) == 1 && ((value >> 15) & 1) == 0) {
+            enemyHqLoc = new MapLocation(width - x, height - y);
+            rc.writeSharedArray(0, (1 << 12) | ((width - x) << 6) | (height - y));
+          } else if (((value >> 13) & 1) == 1 && ((value >> 14) & 1) == 0 && ((value >> 15) & 1) == 1) {
+            enemyHqLoc = new MapLocation(width - x, height);
+            rc.writeSharedArray(0, (1 << 12) | ((width - x) << 6) | (height));
+          } else if (((value >> 13) & 1) == 0 && ((value >> 14) & 1) == 1 && ((value >> 15) & 1) == 1) {
+            enemyHqLoc = new MapLocation(x, height - y);
+            rc.writeSharedArray(0, (1 << 12) | (x << 6) | (height - y));
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Run a single turn for a Miner.
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runMiner(RobotController rc) throws GameActionException {
+    scoutHqReflections(rc);
     // reset target every 128 turns
     if ((turnCount & 0x7F) == 0) { target = null; nearestLead = null;}
     if (hqLoc == null) {
@@ -324,6 +384,7 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runSoldier(RobotController rc) throws GameActionException {
+    scoutHqReflections(rc);
     boolean attacking = false;
     // reset target every 128 turns
     if ((turnCount & 0x7F) == 0) target = null;
