@@ -324,6 +324,7 @@ public strictfp class RobotPlayer {
    * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
    */
   static void runSoldier(RobotController rc) throws GameActionException {
+    boolean attacking = false;
     // reset target every 128 turns
     if ((turnCount & 0x7F) == 0) target = null;
     MapLocation me = rc.getLocation();
@@ -338,37 +339,10 @@ public strictfp class RobotPlayer {
     Team opponent = rc.getTeam().opponent();
     RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
     if (enemies.length > 0) {
+      attacking = true;
       MapLocation toAttack = enemies[0].location;
       if (rc.canAttack(toAttack))
         rc.attack(toAttack);
-    }
-
-    radius = rc.getType().visionRadiusSquared;
-    enemies = rc.senseNearbyRobots(radius, opponent);
-    RobotInfo [] friends = rc.senseNearbyRobots(radius, rc.getTeam());
-    if (enemies.length > 0) {
-      if (friends.length > enemies.length) {
-        target = null;
-        MapLocation newTarget = enemies[0].location;
-        Direction dir = me.directionTo(newTarget);
-        tryMoveImproved(rc, dir);
-        // try to attack (maybe we've moved into range)
-        if (rc.canAttack(newTarget))
-          rc.attack(newTarget);
-      }
-      // run away from soldiers and toward miners
-      for (RobotInfo enemy : enemies) {
-        if (enemy.type == RobotType.SOLDIER) {
-          Direction dir = enemy.location.directionTo(me);
-          tryMoveImproved(rc, dir);
-        }
-      }
-      for (RobotInfo enemy : enemies) {
-        if (enemy.type == RobotType.MINER) {
-          Direction dir = me.directionTo(enemy.location);
-          tryMoveImproved(rc, dir);
-        }
-      }
     }
 
     // try to find enemy HQ
@@ -395,12 +369,57 @@ public strictfp class RobotPlayer {
       else if (rc.canSenseLocation(enemyHqLoc)) {
         RobotInfo enemyHq = rc.senseRobotAtLocation(enemyHqLoc);
         if (enemyHq == null || enemyHq.team == rc.getTeam() || enemyHq.type != RobotType.ARCHON) rc.writeSharedArray(0, 0);
-      } else {
-        // move toward enemy HQ if we're surrounded by more friends than enemies
-        if (friends.length > enemies.length) {
-          Direction dir = me.directionTo(enemyHqLoc);
+      }
+    }
+
+    radius = rc.getType().visionRadiusSquared;
+    enemies = rc.senseNearbyRobots(radius, opponent);
+    RobotInfo [] friends = rc.senseNearbyRobots(radius, rc.getTeam());
+    if (enemies.length > 0) {
+      if (friends.length > enemies.length) {
+        target = null;
+        MapLocation newTarget = enemies[0].location;
+        Direction dir = me.directionTo(newTarget);
+        if (me.distanceSquaredTo(newTarget) > rc.getType().actionRadiusSquared
+            || rc.canMove(dir) && rc.senseRubble(me) >= rc.senseRubble(me.add(dir)))
           tryMoveImproved(rc, dir);
+        else
+          return;
+        // try to attack (maybe we've moved into range)
+        if (rc.canAttack(newTarget))
+          rc.attack(newTarget);
+      }
+      // run away from soldiers and toward miners
+      for (RobotInfo enemy : enemies) {
+        if (enemy.type == RobotType.SOLDIER) {
+          Direction dir = enemy.location.directionTo(me);
+          if (rc.senseRubble(me) >= rc.senseRubble(me.add(dir)))
+            tryMoveImproved(rc, dir);
+          else
+            return;
         }
+      }
+      for (RobotInfo enemy : enemies) {
+        if (enemy.type == RobotType.MINER) {
+          MapLocation newTarget = enemy.location;
+          Direction dir = me.directionTo(newTarget);
+          if (me.distanceSquaredTo(newTarget) > rc.getType().actionRadiusSquared
+              || rc.canMove(dir) && rc.senseRubble(me) >= rc.senseRubble(me.add(dir))) {
+            tryMoveImproved(rc, dir);
+            if (rc.canAttack(newTarget))
+              rc.attack(newTarget);
+          } else {
+            return;
+          }
+        }
+      }
+    }
+
+    if (enemyHqLoc != null && !rc.canSenseLocation(enemyHqLoc)) {
+      // move toward enemy HQ if we're surrounded by more friends than enemies
+      if (friends.length > enemies.length) {
+        Direction dir = me.directionTo(enemyHqLoc);
+        tryMoveImproved(rc, dir);
       }
     }
 
