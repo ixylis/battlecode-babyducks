@@ -353,6 +353,24 @@ public strictfp class RobotPlayer {
       tryMoveImproved(rc, dir);
     }
     
+    // if you're adjacent to a lead deposit and no other miners are around, stay there until lead regenerates
+    // TODO: Maybe only do this if there's >1 lead nearby
+    for (int dx = -1; dx <= 1; dx ++) {
+      for (int dy = -1; dy <= 1; dy ++) {
+        MapLocation mineLocation = new MapLocation(me.x + dx, me.y + dy);
+        if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) >= 1) {
+          boolean nearbyMiner = false;
+          for (RobotInfo robot : rc.senseNearbyRobots(mineLocation, 2, rc.getTeam())) {
+            if (robot.type == RobotType.MINER) {
+              nearbyMiner = true;
+              break;
+            }
+          }
+          if (!nearbyMiner) return;
+        }
+      }
+    }
+    
     // pick a random target on the map and go there
     if (target == null) {
       target = new MapLocation(rng.nextInt(rc.getMapWidth()), rng.nextInt(rc.getMapHeight()));
