@@ -29,8 +29,10 @@ public abstract class Robot {
         while(true) {
             try {
                 turn();
-            } catch(Exception e) {
+            } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
+            } catch(Exception e) {
+                rc.setIndicatorString(e.getStackTrace()[0].toString());
             }
             Clock.yield();
         }
@@ -165,7 +167,7 @@ public abstract class Robot {
             if(r.type == RobotType.ARCHON) {
                 int i;
                 for(i=0;i<4;i++) {
-                    if(needsUpdating[i].equals(r.location)) {//this accounts for an existing one
+                    if(r.location.equals(needsUpdating[i])) {//this accounts for an existing one
                         needsUpdating[i] = null;
                         break;
                     }
