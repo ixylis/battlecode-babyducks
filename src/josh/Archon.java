@@ -7,12 +7,17 @@ import battlecode.common.RobotController;
 import battlecode.common.RobotType;
 
 public class Archon extends Robot {
+    private int myHQIndex;
     Archon(RobotController r) throws GameActionException {
         super(r);
         int i;
         for(i=INDEX_MY_HQ;rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
-        if(i<INDEX_MY_HQ+4)
+        if(i<INDEX_MY_HQ+4) {
+            myHQIndex = i;
             rc.writeSharedArray(i, Robot.locToInt(rc.getLocation()));
+        } else {
+            rc.disintegrate(); //uh oh something went very wrong
+        }
     }
     private int lastTurnMoney=0;
     private int miners=0;
@@ -24,11 +29,14 @@ public class Archon extends Robot {
             MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString("income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
-        if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
-            if(build(RobotType.MINER))
-                miners++;
-        } else {
-            build(RobotType.SOLDIER);
+        //determine if it's my turn to build
+        if(rc.getTeamLeadAmount(rc.getTeam())>150 || (rc.getRoundNum()%20 + rc.getRoundNum()/20)%4 == myHQIndex) {
+            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
+                if(build(RobotType.MINER))
+                    miners++;
+            } else {
+                build(RobotType.SOLDIER);
+            }
         }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
