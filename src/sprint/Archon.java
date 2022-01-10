@@ -49,6 +49,24 @@ public class Archon extends Robot {
                 myTurn = false;
         }
         if(myTurn) {
+            MapLocation me = rc.getLocation();
+            // if there are few units and little lead around HQ, spawn a builder to suicide into lead
+            int numLead = 0;
+            for (int dx = -5; dx <= 5; dx ++) {
+              for (int dy = -5; dy <= 5; dy ++) {
+                MapLocation mineLocation = new MapLocation(me.x + dx, me.y + dy);
+                if (rc.canSenseLocation(mineLocation) && rc.senseLead(mineLocation) > 0) numLead ++;
+              }
+            }
+            if (rc.getRoundNum() > 100 && rc.senseNearbyRobots().length < 5 && rc.getTeamLeadAmount(rc.getTeam()) < 100) {
+              if (numLead < 10) {
+                for (Direction dir : directions)
+                  if (((rc.canSenseLocation(me.add(dir)) && rc.senseLead(me.add(dir)) == 0)
+                      || (rc.canSenseLocation(me.add(dir).add(dir)) && rc.senseLead(me.add(dir).add(dir)) == 0))
+                      && rc.canBuildRobot(RobotType.BUILDER, dir))
+                    rc.buildRobot(RobotType.BUILDER, dir);
+              }
+            }
             if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
                 if(build(RobotType.MINER))
                     miners++;
