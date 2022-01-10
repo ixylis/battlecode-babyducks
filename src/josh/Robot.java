@@ -29,8 +29,11 @@ public abstract class Robot {
         while(true) {
             try {
                 turn();
-            } catch(Exception e) {
+            } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
+            } catch(Exception e) {
+                rc.setIndicatorString(e.getStackTrace()[0].toString());
+                //rc.setIndicatorString(e.toString());
             }
             Clock.yield();
         }
@@ -148,6 +151,7 @@ public abstract class Robot {
         int r = rng.nextInt(totalWeight);
         int i;
         for(i=0;r>=0;i++) {
+            if(possibleEnemyHQs[i]==null) continue;
             r -= 1000000/possibleEnemyHQs[i].distanceSquaredTo(rc.getLocation());
         }
         return possibleEnemyHQs[i-1];
@@ -165,7 +169,7 @@ public abstract class Robot {
             if(r.type == RobotType.ARCHON) {
                 int i;
                 for(i=0;i<4;i++) {
-                    if(needsUpdating[i].equals(r.location)) {//this accounts for an existing one
+                    if(r.location.equals(needsUpdating[i])) {//this accounts for an existing one
                         needsUpdating[i] = null;
                         break;
                     }
