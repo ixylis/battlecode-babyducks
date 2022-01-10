@@ -3,10 +3,6 @@ package ixabot;
 import battlecode.common.*;
 
 class Miner extends Droid {
-	final int actionCooldown = 2;
-	final int moveCooldown = 20;
-	final int visionRadius = 20;
-	final int actionRadius = 2;
 
 	Miner(RobotController rc){
 		super(rc);
@@ -15,20 +11,18 @@ class Miner extends Droid {
 	public void turn() throws GameActionException{
 		mine();
 		moveTowardsDeposit();
-                int v = readValue(6, 4);
-                rc.setIndicatorString(Integer.toString(v));
+                checkEnemyHQLocation();
 	}
 
 	public void mine() throws GameActionException{
-		MapLocation me = rc.getLocation();
-		for (int dx = -1*actionRadius; dx <= actionRadius; dx++) {
-			for (int dy = -1*actionRadius; dy <= actionRadius; dy++) {
-				MapLocation mineLocation = new MapLocation(me.x + dx, me.y + dy);
-				while (rc.canMineLead(mineLocation) && rc.senseLead(mineLocation) > 1) {
-					rc.mineLead(mineLocation);
-				}
-			}
-        	}
+		MapLocation[] deposits = rc.senseNearbyLocationsWithLead(rc.getType().visionRadiusSquared);
+                for(int i = 0; i<deposits.length; i++){
+                        MapLocation l = deposits[i];
+                        int leadAmount = rc.senseLead(deposits[i]);
+                        while(leadAmount > 1){
+                                rc.mineLead(deposits[i]);
+                        }
+                }
 	}
 	public void moveTowardsDeposit() throws GameActionException{
 		MapLocation deposit = findNearestDeposit();
