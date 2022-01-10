@@ -33,6 +33,7 @@ public abstract class Robot {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
                 rc.setIndicatorString(e.getStackTrace()[0].toString());
+                //rc.setIndicatorString(e.toString());
             }
             Clock.yield();
         }
@@ -150,6 +151,7 @@ public abstract class Robot {
         int r = rng.nextInt(totalWeight);
         int i;
         for(i=0;r>=0;i++) {
+            if(possibleEnemyHQs[i]==null) continue;
             r -= 1000000/possibleEnemyHQs[i].distanceSquaredTo(rc.getLocation());
         }
         return possibleEnemyHQs[i-1];

@@ -15,6 +15,8 @@ public class Soldier extends Robot {
     }
     private MapLocation movementTarget = null;
     public void turn() throws GameActionException {
+        if(rc.isActionReady())
+            attack();
         if(rc.isMovementReady())
             movement();
         else
@@ -63,7 +65,7 @@ public class Soldier extends Robot {
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
         if(enemies.length == 0)
             return false;
-        boolean[][] toBeOccupied = new boolean[9][9];
+        boolean[][] toBeOccupied = new boolean[11][11];
         MapLocation nearest = null;
         for(RobotInfo r : enemies) {
             //if(r.type == RobotType.MINER) continue;
@@ -93,20 +95,20 @@ public class Soldier extends Robot {
             int rubble1 = rc.canSenseLocation(option1)? rc.senseRubble(option1):100;
             int rubble2 = rc.canSenseLocation(option2)? rc.senseRubble(option2):100;
             int rubble3 = rc.canSenseLocation(option3)? rc.senseRubble(option3):100;
-            if(!toBeOccupied[option1.x - rc.getLocation().x + 4][option1.y - rc.getLocation().y + 4] && rubble1 <= rubble2 && rubble1 <= rubble3) {
+            if(!toBeOccupied[option1.x - rc.getLocation().x + 5][option1.y - rc.getLocation().y + 5] && rubble1 <= rubble2 && rubble1 <= rubble3) {
                 to = option1;
                 rubbleTo = rubble1;
-            } else if(!toBeOccupied[option2.x - rc.getLocation().x + 4][option2.y - rc.getLocation().y + 4] && rubble2 <= rubble3) {
+            } else if(!toBeOccupied[option2.x - rc.getLocation().x + 5][option2.y - rc.getLocation().y + 5] && rubble2 <= rubble3) {
                 to = option2;
                 rubbleTo = rubble2;
-            } else if(!toBeOccupied[option3.x - rc.getLocation().x + 4][option3.y - rc.getLocation().y + 4]) {
+            } else if(!toBeOccupied[option3.x - rc.getLocation().x + 5][option3.y - rc.getLocation().y + 5]) {
                 to = option3;
                 rubbleTo = rubble3;
             } else {
                 rubbleTo = rc.senseRubble(from);
                 to = from;
             }
-            toBeOccupied[to.x - rc.getLocation().x + 4][to.y - rc.getLocation().y + 4] = true;
+            toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
             if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) < nearestInfDistance)
                 myAdvanceStrength += 1000/(10+rubbleTo);
         }
@@ -115,7 +117,7 @@ public class Soldier extends Robot {
         for(RobotInfo r:enemies) {
             enemyAdvanceStrength += 1000/(10+rc.senseRubble(r.location));
         }
-        if(enemyAdvanceStrength * 2 < myAdvanceStrength) {
+        if(enemyAdvanceStrength * 2 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation())) && rc.isActionReady()) {
             //do the advance
             MapLocation from = rc.getLocation();
             Direction d = from.directionTo(nearest);
@@ -143,12 +145,12 @@ public class Soldier extends Robot {
         }
         int enemyHoldStrength=0;
         for(RobotInfo r : enemies) {
-            if(r.type==RobotType.MINER)
+            if(r.type==RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
                 continue;
             if(Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
                 enemyHoldStrength += 1000/(10+rc.senseRubble(r.location));
         }
-        if(toMove==null && myHoldStrength < enemyHoldStrength) {
+        if(toMove==null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
             moveInDirection(nearest.directionTo(rc.getLocation()));
             //return true;
         } else if(toMove!=null)
@@ -274,7 +276,8 @@ public class Soldier extends Robot {
         if(enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
         for(RobotInfo r : enemies) {
-            if(bestTarget.type != RobotType.SOLDIER && r.type==RobotType.SOLDIER)
+            if(!(bestTarget.type == RobotType.SOLDIER || bestTarget.type == RobotType.WATCHTOWER) && 
+                    (r.type==RobotType.SOLDIER || r.type == RobotType.WATCHTOWER))
                 bestTarget = r;
             else if(bestTarget.health > r.health)
                 bestTarget = r;
