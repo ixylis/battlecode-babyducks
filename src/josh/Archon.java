@@ -8,6 +8,7 @@ import battlecode.common.RobotType;
 
 public class Archon extends Robot {
     private int myHQIndex;
+    private int initialArchonCount = rc.getArchonCount();
     Archon(RobotController r) throws GameActionException {
         super(r);
         int i;
@@ -27,10 +28,10 @@ public class Archon extends Robot {
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         if(DEBUG) {
             MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS));
-            rc.setIndicatorString("income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
+            rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
-        if(rc.getTeamLeadAmount(rc.getTeam())>150 || (rc.getRoundNum()%20 + rc.getRoundNum()/20)%4 == myHQIndex) {
+        if(rc.getTeamLeadAmount(rc.getTeam())>150 || (rc.getRoundNum()%20 + rc.getRoundNum()/20)%initialArchonCount == myHQIndex) {
             if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
                 if(build(RobotType.MINER))
                     miners++;
