@@ -127,7 +127,7 @@ public strictfp class RobotPlayer {
       }
     }
     // suicide mission
-    if (me.distanceSquaredTo(hqLoc) <= 18 && rc.getTeamLeadAmount(rc.getTeam()) < 100 && rc.senseLead(me) == 0)
+    if (me.distanceSquaredTo(hqLoc) <= 32 && rc.getTeamLeadAmount(rc.getTeam()) < 100 && rc.senseLead(me) == 0)
       rc.disintegrate();
 
     // try to move away from HQ
@@ -583,7 +583,8 @@ public strictfp class RobotPlayer {
         bestDir = newDir;
       }
     }
-    rc.move(bestDir);
+    if (rc.canMove(bestDir))
+      rc.move(bestDir);
   }
 
   static void moveRandom(RobotController rc) throws GameActionException {
