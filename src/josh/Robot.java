@@ -213,7 +213,7 @@ public abstract class Robot {
             
         }
         for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
-            if(r.type == RobotType.SOLDIER) {
+            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER) {
                 int x = Robot.chunkToInt(r.location);
                 boolean found=false;
                 for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
