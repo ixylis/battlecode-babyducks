@@ -49,7 +49,15 @@ public class Archon extends Robot {
                 myTurn = false;
         }
         if(myTurn) {
-            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
+            int max_miners;
+            switch(rc.getArchonCount()) {
+            case 1: max_miners=rc.getMapHeight()/20+rc.getMapWidth()/20+5; break;
+            case 2: max_miners=(rc.getMapHeight()/20+rc.getMapWidth()/20+2)*2; break;
+            case 3: max_miners=(rc.getMapHeight()/20+rc.getMapWidth()/20+1)*2; break;
+            case 4: max_miners=(rc.getMapHeight()/20+rc.getMapWidth()/20+1)*3; break;
+            default: max_miners=0;
+            }
+            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (max_miners > liveMiners || income>liveMiners*30 || rc.getRoundNum()<20)) {
                 if(buildMiner())
                     miners++;
             } else {
