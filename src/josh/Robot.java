@@ -11,6 +11,8 @@ public abstract class Robot {
     public static final int INDEX_INCOME=9;
     public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
+    public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    
     /*
      * intention is for each enemy seen within the last 20 rounds is in here
      * but only put distinct entries if they are more than 4 tiles apart.
