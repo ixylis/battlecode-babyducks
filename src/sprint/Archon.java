@@ -1,10 +1,11 @@
-package josh;
+package sprint;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 import battlecode.common.RobotType;
+import battlecode.common.RobotInfo;
 
 public class Archon extends Robot {
     private int myHQIndex;
@@ -52,6 +53,14 @@ public class Archon extends Robot {
                 if(build(RobotType.MINER))
                     miners++;
             } else {
+                RobotInfo [] robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam());
+                int numBuilders = 0;
+                for (RobotInfo robot : robots) {
+                    if (robot.type == RobotType.BUILDER) numBuilders ++;
+                }
+                Direction preferredBuilder = rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
+                if (rc.canBuildRobot(RobotType.BUILDER, preferredBuilder) && rc.getTeamLeadAmount(rc.getTeam()) > MAX_LEAD * (numBuilders + 1)) 
+                    rc.buildRobot(RobotType.BUILDER, preferredBuilder);
                 build(RobotType.SOLDIER);
             }
         }

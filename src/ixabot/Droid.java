@@ -9,10 +9,4 @@ abstract class Droid extends Robot {
 		super(rc);
 	}
 
-	public void moveRandomly() throws GameActionException {
-		Direction dir = directions[this.rng.nextInt(directions.length)];
-        	if (rc.canMove(dir)) {
-        		rc.move(dir);
-		}
-	}
 }

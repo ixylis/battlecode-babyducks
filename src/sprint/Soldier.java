@@ -1,4 +1,4 @@
-package josh;
+package sprint;
 
 import battlecode.common.Clock;
 import battlecode.common.Direction;
