@@ -1,5 +1,8 @@
 package sprint;
 
+import java.util.Arrays;
+
+import battlecode.common.Clock;
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
@@ -66,58 +69,72 @@ public class Miner extends Robot {
             //moveInDirection(nearest.location.directionTo(rc.getLocation()));
             //return;
         }
+        int b0 = Clock.getBytecodeNum();
         MapLocation l = rc.getLocation();
-        MapLocation loc;
-        int[][] nearbyLead = new int[5][5];
-
-        nearbyLead[0][0] = (rc.canSenseLocation(loc=l.translate(-2, -2)) && !hasNearbyMiner[3][3])?rc.senseLead(loc):0;
-        nearbyLead[0][1] = (rc.canSenseLocation(loc=l.translate(-2, -1)) && !hasNearbyMiner[3][4])?rc.senseLead(loc):0;
-        nearbyLead[0][2] = (rc.canSenseLocation(loc=l.translate(-2, 0)) && !hasNearbyMiner[3][5])?rc.senseLead(loc):0;
-        nearbyLead[0][3] = (rc.canSenseLocation(loc=l.translate(-2, 1)) && !hasNearbyMiner[3][6])?rc.senseLead(loc):0;
-        nearbyLead[0][4] = (rc.canSenseLocation(loc=l.translate(-2, 2)) && !hasNearbyMiner[3][7])?rc.senseLead(loc):0;
-        nearbyLead[1][0] = (rc.canSenseLocation(loc=l.translate(-1, -2)) && !hasNearbyMiner[4][3])?rc.senseLead(loc):0;
-        nearbyLead[1][1] = (rc.canSenseLocation(loc=l.translate(-1, -1)) && !hasNearbyMiner[4][4])?rc.senseLead(loc):0;
-        nearbyLead[1][2] = (rc.canSenseLocation(loc=l.translate(-1, 0)) && !hasNearbyMiner[4][5])?rc.senseLead(loc):0;
-        nearbyLead[1][3] = (rc.canSenseLocation(loc=l.translate(-1, 1)) && !hasNearbyMiner[4][6])?rc.senseLead(loc):0;
-        nearbyLead[1][4] = (rc.canSenseLocation(loc=l.translate(-1, 2)) && !hasNearbyMiner[4][7])?rc.senseLead(loc):0;
-        nearbyLead[2][0] = (rc.canSenseLocation(loc=l.translate(0, -2)) && !hasNearbyMiner[5][3])?rc.senseLead(loc):0;
-        nearbyLead[2][1] = (rc.canSenseLocation(loc=l.translate(0, -1)) && !hasNearbyMiner[5][4])?rc.senseLead(loc):0;
-        nearbyLead[2][2] = (rc.canSenseLocation(loc=l.translate(0, 0)) && !hasNearbyMiner[5][5])?rc.senseLead(loc):0;
-        nearbyLead[2][3] = (rc.canSenseLocation(loc=l.translate(0, 1)) && !hasNearbyMiner[5][6])?rc.senseLead(loc):0;
-        nearbyLead[2][4] = (rc.canSenseLocation(loc=l.translate(0, 2)) && !hasNearbyMiner[5][7])?rc.senseLead(loc):0;
-        nearbyLead[3][0] = (rc.canSenseLocation(loc=l.translate(1, -2)) && !hasNearbyMiner[6][3])?rc.senseLead(loc):0;
-        nearbyLead[3][1] = (rc.canSenseLocation(loc=l.translate(1, -1)) && !hasNearbyMiner[6][4])?rc.senseLead(loc):0;
-        nearbyLead[3][2] = (rc.canSenseLocation(loc=l.translate(1, 0)) && !hasNearbyMiner[6][5])?rc.senseLead(loc):0;
-        nearbyLead[3][3] = (rc.canSenseLocation(loc=l.translate(1, 1)) && !hasNearbyMiner[6][6])?rc.senseLead(loc):0;
-        nearbyLead[3][4] = (rc.canSenseLocation(loc=l.translate(1, 2)) && !hasNearbyMiner[6][7])?rc.senseLead(loc):0;
-        nearbyLead[4][0] = (rc.canSenseLocation(loc=l.translate(2, -2)) && !hasNearbyMiner[7][3])?rc.senseLead(loc):0;
-        nearbyLead[4][1] = (rc.canSenseLocation(loc=l.translate(2, -1)) && !hasNearbyMiner[7][4])?rc.senseLead(loc):0;
-        nearbyLead[4][2] = (rc.canSenseLocation(loc=l.translate(2, 0)) && !hasNearbyMiner[7][5])?rc.senseLead(loc):0;
-        nearbyLead[4][3] = (rc.canSenseLocation(loc=l.translate(2, 1)) && !hasNearbyMiner[7][6])?rc.senseLead(loc):0;
-        nearbyLead[4][4] = (rc.canSenseLocation(loc=l.translate(2, 2)) && !hasNearbyMiner[7][7])?rc.senseLead(loc):0;
-
-        
-        int[] adjacentLead = new int[9];
-        for(int i=0;i<9;i++) {
-            Direction d = Direction.allDirections()[i];
-            loc = new MapLocation(2,2).add(d);
-            for(Direction d2 : Direction.allDirections()) {
-                MapLocation l2 = loc.add(d2);
-                adjacentLead[i] += nearbyLead[l2.x][l2.y];
-            }
-        }
+        MapLocation loc;int mapWidth = rc.getMapWidth();
+        int mapHeight = rc.getMapHeight();
+        boolean onMapX0 = myx + -2 >= 0;
+        boolean onMapY0 = myy + -2 >= 0;
+        boolean onMapX3 = myx + 1 < mapWidth;
+        boolean onMapY3 = myy + 1 < mapHeight;
+        boolean onMapX1 = myx + -1 >= 0;
+        boolean onMapY1 = myy + -1 >= 0;
+        boolean onMapX4 = myx + 2 < mapWidth;
+        boolean onMapY4 = myy + 2 < mapHeight;
+        boolean onMapX2 = true;
+        boolean onMapY2 = true;
+        int pb00 = (onMapX0 && onMapY0 && !hasNearbyMiner[3][3])?rc.senseLead(l.translate(-2, -2)):0;
+        int pb01 = (onMapX0 && onMapY1 && !hasNearbyMiner[3][4])?rc.senseLead(l.translate(-2, -1)):0;
+        int pb02 = (onMapX0 && onMapY2 && !hasNearbyMiner[3][5])?rc.senseLead(l.translate(-2, 0)):0;
+        int pb03 = (onMapX0 && onMapY3 && !hasNearbyMiner[3][6])?rc.senseLead(l.translate(-2, 1)):0;
+        int pb04 = (onMapX0 && onMapY4 && !hasNearbyMiner[3][7])?rc.senseLead(l.translate(-2, 2)):0;
+        int pb10 = (onMapX1 && onMapY0 && !hasNearbyMiner[4][3])?rc.senseLead(l.translate(-1, -2)):0;
+        int pb11 = (onMapX1 && onMapY1 && !hasNearbyMiner[4][4])?rc.senseLead(l.translate(-1, -1)):0;
+        int pb12 = (onMapX1 && onMapY2 && !hasNearbyMiner[4][5])?rc.senseLead(l.translate(-1, 0)):0;
+        int pb13 = (onMapX1 && onMapY3 && !hasNearbyMiner[4][6])?rc.senseLead(l.translate(-1, 1)):0;
+        int pb14 = (onMapX1 && onMapY4 && !hasNearbyMiner[4][7])?rc.senseLead(l.translate(-1, 2)):0;
+        int pb20 = (onMapX2 && onMapY0 && !hasNearbyMiner[5][3])?rc.senseLead(l.translate(0, -2)):0;
+        int pb21 = (onMapX2 && onMapY1 && !hasNearbyMiner[5][4])?rc.senseLead(l.translate(0, -1)):0;
+        int pb22 = (onMapX2 && onMapY2 && !hasNearbyMiner[5][5])?rc.senseLead(l.translate(0, 0)):0;
+        int pb23 = (onMapX2 && onMapY3 && !hasNearbyMiner[5][6])?rc.senseLead(l.translate(0, 1)):0;
+        int pb24 = (onMapX2 && onMapY4 && !hasNearbyMiner[5][7])?rc.senseLead(l.translate(0, 2)):0;
+        int pb30 = (onMapX3 && onMapY0 && !hasNearbyMiner[6][3])?rc.senseLead(l.translate(1, -2)):0;
+        int pb31 = (onMapX3 && onMapY1 && !hasNearbyMiner[6][4])?rc.senseLead(l.translate(1, -1)):0;
+        int pb32 = (onMapX3 && onMapY2 && !hasNearbyMiner[6][5])?rc.senseLead(l.translate(1, 0)):0;
+        int pb33 = (onMapX3 && onMapY3 && !hasNearbyMiner[6][6])?rc.senseLead(l.translate(1, 1)):0;
+        int pb34 = (onMapX3 && onMapY4 && !hasNearbyMiner[6][7])?rc.senseLead(l.translate(1, 2)):0;
+        int pb40 = (onMapX4 && onMapY0 && !hasNearbyMiner[7][3])?rc.senseLead(l.translate(2, -2)):0;
+        int pb41 = (onMapX4 && onMapY1 && !hasNearbyMiner[7][4])?rc.senseLead(l.translate(2, -1)):0;
+        int pb42 = (onMapX4 && onMapY2 && !hasNearbyMiner[7][5])?rc.senseLead(l.translate(2, 0)):0;
+        int pb43 = (onMapX4 && onMapY3 && !hasNearbyMiner[7][6])?rc.senseLead(l.translate(2, 1)):0;
+        int pb44 = (onMapX4 && onMapY4 && !hasNearbyMiner[7][7])?rc.senseLead(l.translate(2, 2)):0;
+        int[] adjacentLead = {
+        pb24+pb34+pb33+pb32+pb22+pb12+pb13+pb14+pb23,
+        pb34+pb44+pb43+pb42+pb32+pb22+pb23+pb24+pb33,
+        pb33+pb43+pb42+pb41+pb31+pb21+pb22+pb23+pb32,
+        pb32+pb42+pb41+pb40+pb30+pb20+pb21+pb22+pb31,
+        pb22+pb32+pb31+pb30+pb20+pb10+pb11+pb12+pb21,
+        pb12+pb22+pb21+pb20+pb10+pb00+pb01+pb02+pb11,
+        pb13+pb23+pb22+pb21+pb11+pb01+pb02+pb03+pb12,
+        pb14+pb24+pb23+pb22+pb12+pb02+pb03+pb04+pb13,
+        pb23+pb33+pb32+pb31+pb21+pb11+pb12+pb13+pb22
+        };
         int bestDir = 8;
+        int best = adjacentLead[8]*100/(10+rc.senseRubble(l));
         for(int i=0;i<8;i++) {
             if(!rc.canMove(Direction.allDirections()[i]))
                 continue;
-            if(adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) > 
-            adjacentLead[bestDir]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[bestDir]))))
+            int x =adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))); 
+            if(x > best) {
                 bestDir = i;
+                best = x;
+            }
         }
+        int b1 = Clock.getBytecodeNum();
         MapLocation recentLoc = recentLocations[(recentLocationsIndex+6)%10];
         int dx = recentLoc==null?0:recentLoc.x - rc.getLocation().x;
         int dy = recentLoc==null?0:recentLoc.y - rc.getLocation().y;
-        rc.setIndicatorString(bestDir + " adj lead "+adjacentLead[bestDir]+" dx "+dx+" dy "+dy);
+        rc.setIndicatorString(bestDir + " adj lead "+adjacentLead[bestDir]+" dx "+dx+" dy "+dy+ " bc "+(b1-b0));
         if(bestDir<8) { //exclude CENTER
             rc.move(Robot.directions[bestDir]);
             return;
