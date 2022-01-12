@@ -1,9 +1,10 @@
 package sprint;
 
 import battlecode.common.*;
+import static battlecode.common.RobotType.*;
 
-public class Soldier extends Robot {
-    Soldier(RobotController r) throws GameActionException {
+public class SoldierMod extends Robot {
+    SoldierMod(RobotController r) throws GameActionException {
         super(r);
     }
     private MapLocation movementTarget = null;
@@ -75,7 +76,7 @@ public class Soldier extends Robot {
         Direction toMove=null;
         int myAdvanceStrength = 0;
         for(RobotInfo r:friends) {
-            if(r.type!=RobotType.SOLDIER)
+            if(r.type!= SOLDIER)
                 continue;
             //find the nearest enemy in sight range of this friend
             MapLocation from = r.location;
@@ -103,13 +104,10 @@ public class Soldier extends Robot {
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
             if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) < nearestInfDistance)
-                myAdvanceStrength += 1000/(10+rubbleTo);
+                myAdvanceStrength += 1000/(10+rubbleTo) + HEALTH_FACTOR * r.health;
         }
         //now time to calculate the enemy strength
-        int enemyAdvanceStrength=0;
-        for(RobotInfo r:enemies) {
-            enemyAdvanceStrength += 1000/(10+rc.senseRubble(r.location));
-        }
+        int enemyAdvanceStrength= computeStrength(enemies);
         if(enemyAdvanceStrength * 2 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation())) && rc.isActionReady()) {
             //do the advance
             MapLocation from = rc.getLocation();
@@ -130,18 +128,18 @@ public class Soldier extends Robot {
         }
         int myHoldStrength=0;
         for(RobotInfo r : friends) {
-            if(r.type!=RobotType.SOLDIER)
+            if(r.type!= SOLDIER)
                 continue;
             int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if(infDist <= nearestInfDistance)
-                myHoldStrength += 1000/(10+rc.senseRubble(r.location));
+                myHoldStrength += 1000/(10+rc.senseRubble(r.location)) + r.health * HEALTH_FACTOR;
         }
         int enemyHoldStrength=0;
         for(RobotInfo r : enemies) {
             if(r.type==RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
                 continue;
             if(Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
-                enemyHoldStrength += 1000/(10+rc.senseRubble(r.location));
+                enemyHoldStrength += 1000/(10+rc.senseRubble(r.location)) + r.health * HEALTH_FACTOR;
         }
         if(toMove==null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
             moveInDirection(nearest.directionTo(rc.getLocation()));
@@ -167,7 +165,6 @@ public class Soldier extends Robot {
         rc.setIndicatorString("adv "+myAdvanceStrength + " oppAdv "+enemyAdvanceStrength + " hold "+myHoldStrength+" oppHold "+enemyHoldStrength);
         return true;
     }
-
     private void bytecodeTest() {
         int[][] a = new int[10][10];
         int c55 = 0;
@@ -266,8 +263,8 @@ public class Soldier extends Robot {
         if(enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
         for(RobotInfo r : enemies) {
-            if(!(bestTarget.type == RobotType.SOLDIER || bestTarget.type == RobotType.WATCHTOWER) && 
-                    (r.type==RobotType.SOLDIER || r.type == RobotType.WATCHTOWER))
+            if(!(bestTarget.type == SOLDIER || bestTarget.type == RobotType.WATCHTOWER) &&
+                    (r.type== SOLDIER || r.type == RobotType.WATCHTOWER))
                 bestTarget = r;
             else if(bestTarget.health > r.health)
                 bestTarget = r;

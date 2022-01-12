@@ -1,8 +1,11 @@
-package sprint;
+package sprintref;
 
-import battlecode.common.*;
-
-import static battlecode.common.RobotType.*;
+import battlecode.common.Direction;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotType;
+import battlecode.common.RobotInfo;
 
 public class Archon extends Robot {
     private int myHQIndex;
@@ -28,7 +31,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         if(DEBUG) {
-            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
@@ -49,16 +52,16 @@ public class Archon extends Robot {
         }
         if(myTurn) {
             if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
-                if(build(MINER))
+                if(build(RobotType.MINER))
                     miners++;
             } else {
-                RobotInfo [] robots = rc.senseNearbyRobots(ARCHON.visionRadiusSquared, rc.getTeam());
+                RobotInfo [] robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam());
                 int numBuilders = 0;
                 for (RobotInfo robot : robots) {
                     if (robot.type == RobotType.BUILDER) numBuilders ++;
                 }
                 Direction preferredBuilder = rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
-                if (rc.canBuildRobot(RobotType.BUILDER, preferredBuilder) && rc.getTeamLeadAmount(rc.getTeam()) > MAX_LEAD * (numBuilders + 1))
+                if (rc.canBuildRobot(RobotType.BUILDER, preferredBuilder) && rc.getTeamLeadAmount(rc.getTeam()) > MAX_LEAD * (numBuilders + 1)) 
                     rc.buildRobot(RobotType.BUILDER, preferredBuilder);
                 build(RobotType.SOLDIER);
             }
@@ -67,29 +70,7 @@ public class Archon extends Robot {
         super.updateEnemySoliderLocations();
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
-
-        if(rc.isActionReady()) {
-            RobotInfo best = rc.senseRobot(rc.getID());
-            for(RobotInfo r : rc.senseNearbyRobots(ARCHON.visionRadiusSquared, rc.getTeam())) {
-                if(r.mode == RobotMode.DROID) {
-                    if(best.mode != RobotMode.DROID) {
-                        best = r;
-                    } else {
-                        if(r.type == SOLDIER && best.type != SOLDIER) {
-                            best = r;
-                        } else if(r.health < best.health) {
-                            best = r;
-                        }
-                    }
-                }
-            }
-
-            if(rc.canRepair(best.location)) {
-                rc.repair(best.location);
-            }
-        }
     }
-
     //builds in a random direction if legal
     private boolean build(RobotType t) throws GameActionException {
         if(rc.getTeamLeadAmount(rc.getTeam()) < t.getLeadWorth(1))

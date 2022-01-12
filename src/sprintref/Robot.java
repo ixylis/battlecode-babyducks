@@ -1,11 +1,8 @@
-package sprint;
+package sprintref;
 
-import battlecode.common.*;
 import java.util.Random;
 
-import static battlecode.common.RobotType.SOLDIER;
-import static battlecode.common.RobotType.WATCHTOWER;
-import static java.lang.Math.sqrt;
+import battlecode.common.*;
 
 public abstract class Robot {
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
@@ -16,49 +13,13 @@ public abstract class Robot {
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
     public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
-    public static final double HEALTH_FACTOR = 0.2;
-    MapLocation myLoc;
-
-    abstract static class Weightage {abstract double weight(Direction d);}
-
-    class RubbleWeight extends Weightage {
-
-        @Override
-        double weight(Direction d) {
-            try {
-                return 1.0 / (1.0 + rc.senseRubble(myLoc.add(d)) / 10.0);
-            } catch(GameActionException e) {
-                e.printStackTrace();
-            }
-
-            return 0.0;
-        }
-    }
-    RubbleWeight rubbleWeight = new RubbleWeight();
-
-    class TargetWeight extends Weightage {
-
-        MapLocation targetLoc;
-
-        TargetWeight(MapLocation targetLoc) {
-            this.targetLoc = targetLoc;
-        }
-
-        @Override
-        double weight(Direction d) {
-            MapLocation newLoc = myLoc.add(d);
-            double curDist = myLoc.distanceSquaredTo(targetLoc);
-            double newDist = newLoc.distanceSquaredTo(targetLoc);
-            if(newDist > curDist) return 1;
-            return (5 * (sqrt(curDist) - sqrt(newDist)) + 1) * (1 + rubbleWeight.weight(d));
-        }
-    }
-
+    
     /*
      * intention is for each enemy seen within the last 20 rounds is in here
      * but only put distinct entries if they are more than 4 tiles apart.
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
+    
     
     public static final boolean DEBUG=true;
     public final Random rng;
@@ -70,7 +31,6 @@ public abstract class Robot {
     void run() {
         while(true) {
             try {
-                myLoc = rc.getLocation();
                 turn();
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
@@ -94,14 +54,8 @@ public abstract class Robot {
         Direction.WEST,
         Direction.NORTHWEST,
     };
-
+    
     public void moveInDirection(Direction d) throws GameActionException {
-        Direction moveDir = bestMove(d);
-        if(rc.canMove(moveDir))
-            rc.move(moveDir);
-    }
-
-    public Direction bestMove(Direction d) throws GameActionException {
         Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
         double[] suitability = {1,.5,.5,.1,.1};
         for(int i=0;i<5;i++) {
@@ -110,21 +64,18 @@ public abstract class Robot {
                 suitability[i] /= 10 + rc.senseRubble(l);
         }
         double best = 0;
-        Direction bestD = Direction.CENTER;
+        Direction bestD = null;
         for(int i=0;i<5;i++) {
             if(suitability[i]>best && rc.canMove(dd[i])) {
                 best = suitability[i];
                 bestD = dd[i];
             }
         }
-        return bestD;
+        if(bestD != null) {
+            rc.move(bestD);
+        }
     }
-
     public void moveToward(MapLocation l) throws GameActionException {
-        moveToward(l, 0.05);
-    }
-
-    public void moveToward(MapLocation l, double randomness) throws GameActionException {
         if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
@@ -137,37 +88,8 @@ public abstract class Robot {
                 rc.move(d);
             return;
         }
-        Direction d = rc.getLocation().directionTo(l);
-        Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
-        Direction moveDir = rng.nextDouble() < randomness ?
-                randDirByWeight(dd, new TargetWeight(l)) : bestMove(d);
-        if(rc.canMove(moveDir)) rc.move(moveDir);
+        moveInDirection(rc.getLocation().directionTo(l));
     }
-
-    private Direction randDirByWeight(Direction[] dirs, Weightage wt) {
-
-        double[] cwt = new double[dirs.length+1];
-        cwt[0] = 0;
-
-        for(int i=1;i<=dirs.length;++i)
-        {
-            cwt[i] = cwt[i-1] + wt.weight(dirs[i-1]);
-        }
-
-        if(cwt[dirs.length] == 0) return null;
-
-        for(int i=1;i<=dirs.length;++i)
-        {
-            cwt[i] /= cwt[dirs.length];
-        }
-
-        double r = rng.nextDouble();
-        int i = 0;
-        while(cwt[i] < r) i++;
-
-        return dirs[i-1];
-    }
-
     private MapLocation wanderTarget=null;
     private int lastWanderProgress = 0; //the last turn which we wandered closer to our destination
     public void wander() throws GameActionException {
@@ -176,7 +98,7 @@ public abstract class Robot {
             lastWanderProgress = rc.getRoundNum();
         }
         MapLocation old = rc.getLocation();
-        moveToward(wanderTarget, 1);
+        moveToward(wanderTarget);
         if(rc.getLocation().distanceSquaredTo(wanderTarget) < old.distanceSquaredTo(wanderTarget))
             lastWanderProgress = rc.getRoundNum();
     }
@@ -326,16 +248,5 @@ public abstract class Robot {
             }
         }
         return nearest;
-    }
-
-    public int computeStrength(RobotInfo[] robots) throws GameActionException {
-        int strength = 0;
-
-        for(RobotInfo r: robots) {
-            if(r.getType() == SOLDIER || r.getType() == WATCHTOWER)
-                strength += 1000 / (10 + rc.senseRubble(r.location)) + r.health * HEALTH_FACTOR;
-        }
-
-        return strength;
     }
 }

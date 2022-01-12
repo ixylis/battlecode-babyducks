@@ -1,15 +1,18 @@
-package sprint;
+package sprintref;
 
-import battlecode.common.*;
-
-import static battlecode.common.RobotType.*;
+import battlecode.common.Direction;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
+import battlecode.common.RobotType;
 
 public class Miner extends Robot {
     int recentlyMined = 0;
     Miner(RobotController r) throws GameActionException {
         super(r);
     }
-    public void turn() throws GameActionException {
+    public void turn() throws GameActionException { 
         if(rc.isMovementReady()) {
             movement();
             if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
@@ -34,36 +37,16 @@ public class Miner extends Robot {
             recentlyMined=0;
         }
     }
-    private MapLocation[] recentLocations = new MapLocation[10];
+    private MapLocation[] recentLocations=new MapLocation[10];
     private int recentLocationsIndex = 0;
     private void movement() throws GameActionException {
-        RobotInfo[] enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam().opponent());
-        RobotInfo[] friends = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
-        int fstr = computeStrength(friends);
-        int estr = computeStrength(enemies);
-
-        if(estr > 2 * fstr) {
-            RobotInfo nearest = enemies[0];
-
-            for(RobotInfo enemy : enemies) {
-                if((enemy.type == SOLDIER || enemy.type == WATCHTOWER) &&
-                        myLoc.distanceSquaredTo(enemy.location) < myLoc.distanceSquaredTo(nearest.location)) {
-                    nearest = enemy;
-                }
-            }
-
-            Direction dir = bestMove(myLoc.directionTo(nearest.location).opposite());
-            if(rc.canMove(dir))
-                rc.move(dir);
-        }
-
         boolean[][] hasNearbyMiner = new boolean[11][11];
-        RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
+        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
         RobotInfo nearest = null;
         int myx=rc.getLocation().x;
         int myy=rc.getLocation().y;
         for(RobotInfo r:nearby) {
-            if(r.type== MINER) {
+            if(r.type==RobotType.MINER) {
                 if(nearest==null || rc.getLocation().distanceSquaredTo(nearest.location) > rc.getLocation().distanceSquaredTo(r.location))
                     nearest=r;
                 int x=r.location.x-myx;
@@ -113,7 +96,7 @@ public class Miner extends Robot {
         nearbyLead[4][3] = (rc.canSenseLocation(loc=l.translate(2, 1)) && !hasNearbyMiner[7][6])?rc.senseLead(loc):0;
         nearbyLead[4][4] = (rc.canSenseLocation(loc=l.translate(2, 2)) && !hasNearbyMiner[7][7])?rc.senseLead(loc):0;
 
-
+        
         int[] adjacentLead = new int[9];
         for(int i=0;i<9;i++) {
             Direction d = Direction.allDirections()[i];
@@ -127,7 +110,7 @@ public class Miner extends Robot {
         for(int i=0;i<8;i++) {
             if(!rc.canMove(Direction.allDirections()[i]))
                 continue;
-            if(adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) >
+            if(adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))) > 
             adjacentLead[bestDir]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[bestDir]))))
                 bestDir = i;
         }
@@ -237,7 +220,7 @@ public class Miner extends Robot {
     private void mine() throws GameActionException {
         MapLocation l = rc.getLocation();
         MapLocation loc;
-
+        
         while(rc.isActionReady() && rc.senseLead(l)>1) {
             rc.mineLead(l);
             recentlyMined++;

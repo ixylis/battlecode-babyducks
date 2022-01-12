@@ -25,7 +25,6 @@ gradle.properties
 /src/*.zip
 /tmp/*
 
-
 # User-specific stuff:
 battlecode-scaffold.iws
 

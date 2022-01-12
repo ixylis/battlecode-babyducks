@@ -1,4 +1,4 @@
-package sprint;
+package sprintref;
 
 import battlecode.common.*;
 
