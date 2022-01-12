@@ -25,7 +25,7 @@ public class Soldier extends Robot {
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
         rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
-        
+        //bytecodeTest();
     }
     /*
      * micro
@@ -202,10 +202,10 @@ public class Soldier extends Robot {
     }
     private void bytecodeTest() {
         int[][] a = new int[10][10];
-        int c55 = 0;
+        int c55 = rc.getRoundNum();
         int c77;
         int b = Clock.getBytecodeNum();
-        a[5][5] = 5;
+        a[5][5] = 5+7+9+11+8+4+5+2+4+c55;
         int b1 = Clock.getBytecodeNum();
         c55 = rc.getID()%10;
         int b2 = Clock.getBytecodeNum();
