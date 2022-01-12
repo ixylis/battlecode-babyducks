@@ -36,6 +36,7 @@ public class Miner extends Robot {
             this.determineMovementSuitability();
             super.updateEnemySoliderLocations();
         }
+        if(rc.getID() != 13496)
         rc.setIndicatorString(Arrays.toString(suitability));
         
         mine();
@@ -207,6 +208,7 @@ public class Miner extends Robot {
         MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead();
         for(int i=0;i<8;i++) {
             suitability[i] = 0;
+            String s = "pb";
             MapLocation m = rc.getLocation().add(Robot.directions[i]);
             if(!rc.onTheMap(m))
                 continue;
@@ -217,28 +219,36 @@ public class Miner extends Robot {
             for(MapLocation pbLoc : pbLocs) {
                 if(m.distanceSquaredTo(pbLoc) < 4) continue;
                 y += rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
+                s += " "+ rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
             }
+            s += " f";
             for(RobotInfo r : nearby) {
                 if(r.type != RobotType.MINER)
                     continue;
                 x -= 25.0/m.distanceSquaredTo(r.location);
+                s += " " + (-25.0/m.distanceSquaredTo(r.location));
             }
             x -= 50.0/Math.sqrt(m.distanceSquaredTo(home));
+            s += " h " + (-50.0/Math.sqrt(m.distanceSquaredTo(home)))+" e";
             for(RobotInfo r : enemies) {
                 switch(r.type) {
                 case SOLDIER:
                 case SAGE:
                 case WATCHTOWER:
                     x -= 100.0/m.distanceSquaredTo(r.location);
+                    s += " " + (-100.0/m.distanceSquaredTo(r.location));
                     break;
                 default:
                 }
             }
+            s += " a";
             for(int j=0;j<8;j++) {
                 MapLocation m2 = recentLocations[(recentLocationsIndex+10-j)%10];
                 if(m2 == null) continue;
-                if(m2!= null && (m2.isAdjacentTo(m) || m2.equals(m)))
+                if(m2!= null && (m2.isAdjacentTo(m) || m2.equals(m))) {
                     x -= 10;
+                    s += " -10";
+                }
             }
             boolean left = m.x < 10;
             boolean right = m.x + 10 > mapWidth;
@@ -270,6 +280,8 @@ public class Miner extends Robot {
                 x -= 10 * (m.x + 10 - mapWidth); 
                 x -= 10 * (m.y + 10 - mapHeight);
             }
+            if(i==5 && rc.getID() == 13496)
+                rc.setIndicatorString(s);
             suitability[i] = (int)(10 * (100 + y + x - 2.0/rubbleMult));
         }
             
