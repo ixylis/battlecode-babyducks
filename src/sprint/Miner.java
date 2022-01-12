@@ -215,13 +215,13 @@ public class Miner extends Robot {
             double y = 0, x = 0;
             double rubbleMult = 10.0/(10 + nearbyRubble[i]);
             for(MapLocation pbLoc : pbLocs) {
-                if(m.distanceSquaredTo(pbLoc) < 9) continue;
-                y += Math.log10(rc.senseLead(pbLoc))/m.distanceSquaredTo(pbLoc);
+                if(m.distanceSquaredTo(pbLoc) < 4) continue;
+                y += rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
             }
             for(RobotInfo r : nearby) {
                 if(r.type != RobotType.MINER)
                     continue;
-                x -= 5.0/m.distanceSquaredTo(r.location);
+                x -= 25.0/m.distanceSquaredTo(r.location);
             }
             x -= 50.0/Math.sqrt(m.distanceSquaredTo(home));
             for(RobotInfo r : enemies) {
@@ -229,7 +229,7 @@ public class Miner extends Robot {
                 case SOLDIER:
                 case SAGE:
                 case WATCHTOWER:
-                    x -= 10.0/m.distanceSquaredTo(r.location);
+                    x -= 100.0/m.distanceSquaredTo(r.location);
                     break;
                 default:
                 }
