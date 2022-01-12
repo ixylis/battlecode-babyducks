@@ -24,6 +24,7 @@ public class Miner extends Robot {
     }
     int lastMoveTurn = 0;
     public void turn() throws GameActionException { 
+        getNearestUnexploredChunk();
         if(rc.isMovementReady() && (rc.getRoundNum() - lastMoveTurn < 10)) {
             movement();
             if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {

@@ -12,6 +12,7 @@ public abstract class Robot {
     public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
     public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    public static final int INDEX_EXPLORED_CHUNKS=21; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     
     /*
@@ -248,5 +249,10 @@ public abstract class Robot {
             }
         }
         return nearest;
+    }
+    MapLocation getNearestUnexploredChunk() throws GameActionException {
+        MapLocation l = rc.getLocation();
+        rc.writeSharedArray(INDEX_EXPLORED_CHUNKS, 0xfff0);
+        return l;
     }
 }
