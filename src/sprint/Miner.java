@@ -12,18 +12,32 @@ import battlecode.common.RobotType;
 
 public class Miner extends Robot {
     int recentlyMined = 0;
+    MapLocation home;
     Miner(RobotController r) throws GameActionException {
         super(r);
+        for(RobotInfo r1 : rc.senseNearbyRobots(2, rc.getTeam())) {
+            if(r1.type == RobotType.ARCHON)
+                home = r1.location;
+        }
+        if(home == null)
+            home = rc.getLocation();
     }
+    int lastMoveTurn = 0;
     public void turn() throws GameActionException { 
-        if(rc.isMovementReady()) {
+        if(rc.isMovementReady() && (rc.getRoundNum() - lastMoveTurn < 10)) {
             movement();
             if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
                 recentLocationsIndex = (recentLocationsIndex + 1)%10;
                 recentLocations[recentLocationsIndex] = rc.getLocation();
+                lastMoveTurn = rc.getRoundNum();
             }
-        } else
+        } else {
+            lastMoveTurn = rc.getRoundNum();
+            this.determineMovementSuitability();
             super.updateEnemySoliderLocations();
+        }
+        rc.setIndicatorString(Arrays.toString(suitability));
+        
         mine();
         if(rc.getRoundNum()%2 != rc.readSharedArray(INDEX_LIVE_MINERS)%2) {
             rc.writeSharedArray(INDEX_LIVE_MINERS, 2+rc.getRoundNum()%2);
@@ -42,6 +56,26 @@ public class Miner extends Robot {
     }
     private MapLocation[] recentLocations=new MapLocation[10];
     private int recentLocationsIndex = 0;
+    
+    /*
+     * new mining plan:
+     * if there's stuff within two tiles that's not adjacent to other miners, move to the space that maximizes your mining.
+     * 
+     * otherwise, move based on a heuristic:
+       * move away from friendly miners
+       * move toward deposits
+       * move toward low rubble
+       * move away from where you just moved
+       * move away from enemy units
+       * move away from home
+     * for each of the 8 possible moves, use the following weights: (d is distance sq to the relevant thing)
+       * - 5/d for friendly miners
+       * + log_10(deposit)/d for deposits
+       * multiply positive things by 10/(10+r) for rubble and negative things by (10+r)/10
+       * -10 per tile adjacent to a tile you were on in the last 4 turns
+       * -10/d for enemy fighters
+       * -5/d for your home
+     */
     private void movement() throws GameActionException {
         boolean[][] hasNearbyMiner = new boolean[11][11];
         RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
@@ -65,13 +99,15 @@ public class Miner extends Robot {
                 hasNearbyMiner[x+5][y+6] = true;
             }
         }
-        if(nearest!=null) {
-            //moveInDirection(nearest.location.directionTo(rc.getLocation()));
-            //return;
+
+        int[] nearbyRubble = new int[9];
+        for(int i=0;i<9;i++) {
+            MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
         }
+        
         int b0 = Clock.getBytecodeNum();
         MapLocation l = rc.getLocation();
-        MapLocation loc;
         int mapWidth = rc.getMapWidth();
         int mapHeight = rc.getMapHeight();
         boolean onMapX0 = myx + -2 >= 0;
@@ -127,7 +163,7 @@ public class Miner extends Robot {
         for(int i=0;i<8;i++) {
             if(!rc.canMove(Direction.allDirections()[i]))
                 continue;
-            int x =adjacentLead[i]*100/(10+rc.senseRubble(l.add(Direction.allDirections()[i]))); 
+            int x =adjacentLead[i]*100/(10+nearbyRubble[i]); 
             if(x > best) {
                 bestDir = i;
                 best = x;
@@ -143,99 +179,100 @@ public class Miner extends Robot {
             return;
         } else if(adjacentLead[bestDir] > 0) {
             return;
-        }
-        if(dx*-3+dy*0<=0 && rc.canSenseLocation(loc=l.translate(-3, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][5]) {
-            moveToward(loc);
-        } else if(dx*0+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(0, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][2]) {
-            moveToward(loc);
-        } else if(dx*0+dy*3<=0 && rc.canSenseLocation(loc=l.translate(0, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][8]) {
-            moveToward(loc);
-        } else if(dx*3+dy*0<=0 && rc.canSenseLocation(loc=l.translate(3, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][5]) {
-            moveToward(loc);
-        } else if(dx*-3+dy*-1<=0 && rc.canSenseLocation(loc=l.translate(-3, -1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][4]) {
-            moveToward(loc);
-        } else if(dx*-3+dy*1<=0 && rc.canSenseLocation(loc=l.translate(-3, 1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][6]) {
-            moveToward(loc);
-        } else if(dx*-1+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(-1, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[4][2]) {
-            moveToward(loc);
-        } else if(dx*-1+dy*3<=0 && rc.canSenseLocation(loc=l.translate(-1, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[4][8]) {
-            moveToward(loc);
-        } else if(dx*1+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(1, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[6][2]) {
-            moveToward(loc);
-        } else if(dx*1+dy*3<=0 && rc.canSenseLocation(loc=l.translate(1, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[6][8]) {
-            moveToward(loc);
-        } else if(dx*3+dy*-1<=0 && rc.canSenseLocation(loc=l.translate(3, -1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][4]) {
-            moveToward(loc);
-        } else if(dx*3+dy*1<=0 && rc.canSenseLocation(loc=l.translate(3, 1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][6]) {
-            moveToward(loc);
-        } else if(dx*-3+dy*-2<=0 && rc.canSenseLocation(loc=l.translate(-3, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][3]) {
-            moveToward(loc);
-        } else if(dx*-3+dy*2<=0 && rc.canSenseLocation(loc=l.translate(-3, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][7]) {
-            moveToward(loc);
-        } else if(dx*-2+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(-2, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][2]) {
-            moveToward(loc);
-        } else if(dx*-2+dy*3<=0 && rc.canSenseLocation(loc=l.translate(-2, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][8]) {
-            moveToward(loc);
-        } else if(dx*2+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(2, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][2]) {
-            moveToward(loc);
-        } else if(dx*2+dy*3<=0 && rc.canSenseLocation(loc=l.translate(2, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][8]) {
-            moveToward(loc);
-        } else if(dx*3+dy*-2<=0 && rc.canSenseLocation(loc=l.translate(3, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][3]) {
-            moveToward(loc);
-        } else if(dx*3+dy*2<=0 && rc.canSenseLocation(loc=l.translate(3, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][7]) {
-            moveToward(loc);
-        } else if(dx*-4+dy*0<=0 && rc.canSenseLocation(loc=l.translate(-4, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[1][5]) {
-            moveToward(loc);
-        } else if(dx*0+dy*-4<=0 && rc.canSenseLocation(loc=l.translate(0, -4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][1]) {
-            moveToward(loc);
-        } else if(dx*0+dy*4<=0 && rc.canSenseLocation(loc=l.translate(0, 4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[5][9]) {
-            moveToward(loc);
-        } else if(dx*4+dy*0<=0 && rc.canSenseLocation(loc=l.translate(4, 0)) && rc.senseLead(loc)>1 && !hasNearbyMiner[9][5]) {
-            moveToward(loc);
-        } else if(dx*-4+dy*-1<=0 && rc.canSenseLocation(loc=l.translate(-4, -1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[1][4]) {
-            moveToward(loc);
-        } else if(dx*-4+dy*1<=0 && rc.canSenseLocation(loc=l.translate(-4, 1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[1][6]) {
-            moveToward(loc);
-        } else if(dx*-1+dy*-4<=0 && rc.canSenseLocation(loc=l.translate(-1, -4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[4][1]) {
-            moveToward(loc);
-        } else if(dx*-1+dy*4<=0 && rc.canSenseLocation(loc=l.translate(-1, 4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[4][9]) {
-            moveToward(loc);
-        } else if(dx*1+dy*-4<=0 && rc.canSenseLocation(loc=l.translate(1, -4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[6][1]) {
-            moveToward(loc);
-        } else if(dx*1+dy*4<=0 && rc.canSenseLocation(loc=l.translate(1, 4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[6][9]) {
-            moveToward(loc);
-        } else if(dx*4+dy*-1<=0 && rc.canSenseLocation(loc=l.translate(4, -1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[9][4]) {
-            moveToward(loc);
-        } else if(dx*4+dy*1<=0 && rc.canSenseLocation(loc=l.translate(4, 1)) && rc.senseLead(loc)>1 && !hasNearbyMiner[9][6]) {
-            moveToward(loc);
-        } else if(dx*-3+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(-3, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][2]) {
-            moveToward(loc);
-        } else if(dx*-3+dy*3<=0 && rc.canSenseLocation(loc=l.translate(-3, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[2][8]) {
-            moveToward(loc);
-        } else if(dx*3+dy*-3<=0 && rc.canSenseLocation(loc=l.translate(3, -3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][2]) {
-            moveToward(loc);
-        } else if(dx*3+dy*3<=0 && rc.canSenseLocation(loc=l.translate(3, 3)) && rc.senseLead(loc)>1 && !hasNearbyMiner[8][8]) {
-            moveToward(loc);
-        } else if(dx*-4+dy*-2<=0 && rc.canSenseLocation(loc=l.translate(-4, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[1][3]) {
-            moveToward(loc);
-        } else if(dx*-4+dy*2<=0 && rc.canSenseLocation(loc=l.translate(-4, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[1][7]) {
-            moveToward(loc);
-        } else if(dx*-2+dy*-4<=0 && rc.canSenseLocation(loc=l.translate(-2, -4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][1]) {
-            moveToward(loc);
-        } else if(dx*-2+dy*4<=0 && rc.canSenseLocation(loc=l.translate(-2, 4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[3][9]) {
-            moveToward(loc);
-        } else if(dx*2+dy*-4<=0 && rc.canSenseLocation(loc=l.translate(2, -4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][1]) {
-            moveToward(loc);
-        } else if(dx*2+dy*4<=0 && rc.canSenseLocation(loc=l.translate(2, 4)) && rc.senseLead(loc)>1 && !hasNearbyMiner[7][9]) {
-            moveToward(loc);
-        } else if(dx*4+dy*-2<=0 && rc.canSenseLocation(loc=l.translate(4, -2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[9][3]) {
-            moveToward(loc);
-        } else if(dx*4+dy*2<=0 && rc.canSenseLocation(loc=l.translate(4, 2)) && rc.senseLead(loc)>1 && !hasNearbyMiner[9][7]) {
-            moveToward(loc);
         } else {
-            if(rc.isActionReady()) //only wander if you did not mine this turn
-                wander();
+            int bestSuitability = -999;
+            int bestSuitabilityDir = 0;
+            for(int i=0;i<8;i++) {
+                if(suitability[i] > bestSuitability && rc.canMove(Robot.directions[i])) {
+                    bestSuitability = suitability[i];
+                    bestSuitabilityDir = i;
+                }
+            }
+            rc.move(Robot.directions[bestSuitabilityDir]);
+            return;
         }
+    }
+    private int[] suitability = new int[8];
+    private void determineMovementSuitability() throws GameActionException {
+        RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
+        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+        int[] nearbyRubble = new int[9];
+        for(int i=0;i<9;i++) {
+            MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
+        }
+        int mapWidth = rc.getMapWidth();
+        int mapHeight = rc.getMapHeight();
+        
+        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead();
+        for(int i=0;i<8;i++) {
+            suitability[i] = 0;
+            MapLocation m = rc.getLocation().add(Robot.directions[i]);
+            if(!rc.onTheMap(m))
+                continue;
+            if(rc.isLocationOccupied(m))
+                continue;
+            double y = 0, x = 0;
+            double rubbleMult = 10.0/(10 + nearbyRubble[i]);
+            for(MapLocation pbLoc : pbLocs) {
+                if(m.distanceSquaredTo(pbLoc) < 9) continue;
+                y += Math.log10(rc.senseLead(pbLoc))/m.distanceSquaredTo(pbLoc);
+            }
+            for(RobotInfo r : nearby) {
+                if(r.type != RobotType.MINER)
+                    continue;
+                x -= 5.0/m.distanceSquaredTo(r.location);
+            }
+            x -= 50.0/Math.sqrt(m.distanceSquaredTo(home));
+            for(RobotInfo r : enemies) {
+                switch(r.type) {
+                case SOLDIER:
+                case SAGE:
+                case WATCHTOWER:
+                    x -= 10.0/m.distanceSquaredTo(r.location);
+                    break;
+                default:
+                }
+            }
+            for(int j=0;j<8;j++) {
+                MapLocation m2 = recentLocations[(recentLocationsIndex+10-j)%10];
+                if(m2 == null) continue;
+                if(m2!= null && (m2.isAdjacentTo(m) || m2.equals(m)))
+                    x -= 10;
+            }
+            boolean left = m.x < 10;
+            boolean right = m.x + 10 > mapWidth;
+            boolean bottom = m.y < 10;
+            boolean top = m.y + 10 > mapHeight;
+            if(m.x < 10) {
+                x -= .2 * (10 - m.x); 
+            } else if(m.x + 10 > mapWidth) {
+                x -= .2 * (m.x + 10 - mapWidth);
+            }
+            if(m.y < 10) {
+                x -= .2 * (10 - m.y); 
+            } else if(m.y + 10 > mapHeight) {
+                x -= .2 * (m.y + 10 - mapHeight);
+            }
+            if(m.x < 4 && m.y < 4) {
+                x -= 10 * (10 - m.x); 
+                x -= 10 * (10 - m.y);
+            }
+            if(m.x < 4 && m.y + 4 > mapHeight) {
+                x -= 10 * (10 - m.x); 
+                x -= 10 * (m.y + 10 - mapHeight);
+            }
+            if(m.x + 4 > mapWidth && m.y < 4) {
+                x -= 10 * (m.x + 10 - mapWidth); 
+                x -= 10 * (10 - m.y);
+            }
+            if(m.x + 4 > mapWidth && m.y + 4 > mapHeight) {
+                x -= 10 * (m.x + 10 - mapWidth); 
+                x -= 10 * (m.y + 10 - mapHeight);
+            }
+            suitability[i] = (int)(10 * (100 + y + x - 2.0/rubbleMult));
+        }
+            
     }
     private void mine() throws GameActionException {
         MapLocation l = rc.getLocation();
