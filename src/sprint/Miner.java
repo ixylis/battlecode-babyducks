@@ -214,7 +214,11 @@ public class Miner extends Robot {
         }
         int mapWidth = rc.getMapWidth();
         int mapHeight = rc.getMapHeight();
-        MapLocation unexplored = getNearestUnexploredChunk();
+
+        MapLocation recentLoc = recentLocations[(recentLocationsIndex+6)%10];
+        if(recentLoc ==null) recentLoc = rc.getLocation();
+        
+        MapLocation unexplored = getNearestUnexploredChunk(rc.getLocation().add(recentLoc.directionTo(rc.getLocation())));
         MapLocation nearestEnemy = getNearestEnemyChunk();
         if(nearestEnemy!=null && rc.getLocation().distanceSquaredTo(nearestEnemy) > 100)
             nearestEnemy = null;

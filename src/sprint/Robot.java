@@ -250,8 +250,7 @@ public abstract class Robot {
         }
         return nearest;
     }
-    MapLocation getNearestUnexploredChunk() throws GameActionException {
-        MapLocation l = rc.getLocation();
+    MapLocation getNearestUnexploredChunk(MapLocation l) throws GameActionException {
         int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
         int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
         int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
