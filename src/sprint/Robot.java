@@ -1,6 +1,8 @@
 package sprint;
 
 import battlecode.common.*;
+
+import java.util.Map;
 import java.util.Random;
 
 import static battlecode.common.RobotType.SOLDIER;
@@ -18,6 +20,7 @@ public abstract class Robot {
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     public static final double HEALTH_FACTOR = 0.2;
     MapLocation myLoc;
+    MapLocation[] corners;
 
     abstract static class Weightage {abstract double weight(Direction d);}
 
@@ -26,7 +29,10 @@ public abstract class Robot {
         @Override
         double weight(Direction d) {
             try {
-                return 1.0 / (1.0 + rc.senseRubble(myLoc.add(d)) / 10.0);
+                if(rc.canSenseLocation(myLoc.add(d)))
+                    return 1000 / (10.0 + rc.senseRubble(myLoc.add(d)));
+                else
+                    return 0;
             } catch(GameActionException e) {
                 e.printStackTrace();
             }
@@ -50,7 +56,7 @@ public abstract class Robot {
             double curDist = myLoc.distanceSquaredTo(targetLoc);
             double newDist = newLoc.distanceSquaredTo(targetLoc);
             if(newDist > curDist) return 1;
-            return (5 * (sqrt(curDist) - sqrt(newDist)) + 1) * (1 + rubbleWeight.weight(d));
+            return (10 * (sqrt(curDist) - sqrt(newDist)) + 1) * (1 + rubbleWeight.weight(d));
         }
     }
 
@@ -66,7 +72,18 @@ public abstract class Robot {
     Robot(RobotController r) throws GameActionException {
         rc = r;
         rng = new Random(rc.getID());
+        corners = new MapLocation[4];
+        corners[0] = new MapLocation(0, 0);
+        corners[1] = new MapLocation(rc.getMapWidth() - 1, 0);
+        corners[2] = new MapLocation(0, rc.getMapHeight() - 1);
+        corners[3] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() - 1);
+//        corners[4] = new MapLocation(rc.getMapWidth() / 2, 0);
+//        corners[5] = new MapLocation(0, rc.getMapHeight() / 2);
+//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+//        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+//        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
     }
+
     void run() {
         while(true) {
             try {
@@ -108,6 +125,7 @@ public abstract class Robot {
             MapLocation l = rc.getLocation().add(dd[i]);
             if(rc.onTheMap(l))
                 suitability[i] /= 10 + rc.senseRubble(l);
+
         }
         double best = 0;
         Direction bestD = Direction.CENTER;
@@ -144,7 +162,7 @@ public abstract class Robot {
         if(rc.canMove(moveDir)) rc.move(moveDir);
     }
 
-    private Direction randDirByWeight(Direction[] dirs, Weightage wt) {
+    public Direction randDirByWeight(Direction[] dirs, Weightage wt) {
 
         double[] cwt = new double[dirs.length+1];
         cwt[0] = 0;
@@ -171,8 +189,10 @@ public abstract class Robot {
     private MapLocation wanderTarget=null;
     private int lastWanderProgress = 0; //the last turn which we wandered closer to our destination
     public void wander() throws GameActionException {
-        while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10 || lastWanderProgress+20 < rc.getRoundNum()) {
-            wanderTarget = new MapLocation(rng.nextInt(rc.getMapWidth()),rng.nextInt(rc.getMapHeight()));
+        while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10) {
+            wanderTarget = rng.nextDouble() < 0.5 ?
+                    corners[rng.nextInt(4)] :
+                    new MapLocation(rng.nextInt(rc.getMapWidth()), rng.nextInt(rc.getMapHeight()));
             lastWanderProgress = rc.getRoundNum();
         }
         MapLocation old = rc.getLocation();
@@ -294,7 +314,7 @@ public abstract class Robot {
             
         }
         for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
-            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER) {
+            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER || r.type == RobotType.MINER) {
                 int x = Robot.chunkToInt(r.location);
                 boolean found=false;
                 for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {

@@ -36,6 +36,7 @@ public class Miner extends Robot {
     }
     private MapLocation[] recentLocations = new MapLocation[10];
     private int recentLocationsIndex = 0;
+
     private void movement() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam().opponent());
         RobotInfo[] friends = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());

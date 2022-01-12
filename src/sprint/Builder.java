@@ -1,6 +1,7 @@
 package sprint;
 
 import battlecode.common.*;
+import static battlecode.common.RobotType.*;
 
 public class Builder extends Robot {
     Builder(RobotController r) throws GameActionException {
@@ -36,13 +37,24 @@ public class Builder extends Robot {
         tryMoveImproved(rc, dir);
       }
 
-
       // build watchtowers, but only at least 3 squares away from HQ (to avoid spawn locking)
       if (me.distanceSquaredTo(hqLoc) >= 25 && rc.getTeamLeadAmount(rc.getTeam()) > MAX_LEAD) {
         //rc.setIndicatorString("Trying to build a watchtower!");
-        for (Direction dir : directions)
-          if (rc.canBuildRobot(RobotType.WATCHTOWER, dir) && ((me.add(dir).x + me.add(dir).y) & 1) == 0)
-            rc.buildRobot(RobotType.WATCHTOWER, dir);
+        for (Direction dir : directions) {
+          if (rc.canBuildRobot(WATCHTOWER, dir) && ((me.add(dir).x + me.add(dir).y) & 1) == 0) {
+            rc.buildRobot(WATCHTOWER, dir);
+          }
+        }
+        if(rc.isActionReady()) {
+          for(RobotInfo r : rc.senseNearbyRobots(RobotType.BUILDER.actionRadiusSquared, rc.getTeam())) {
+            if(r.type == WATCHTOWER) {
+              if(rc.canMutate(r.location)) {
+                rc.mutate(r.location);
+
+              }
+            }
+          }
+        }
       } else {
         rc.setIndicatorString("Not trying to build a watchtower!");
       }

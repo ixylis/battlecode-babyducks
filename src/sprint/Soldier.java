@@ -102,16 +102,18 @@ public class Soldier extends Robot {
                 to = from;
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
-            if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) < nearestInfDistance)
-                myAdvanceStrength += 1000/(10+rubbleTo);
+            if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) <= 3)
+                myAdvanceStrength += 1000/(10+rubbleTo) * 10/(10 + rc.senseRubble(r.location));
         }
         //now time to calculate the enemy strength
         int enemyAdvanceStrength=0;
         for(RobotInfo r:enemies) {
+            if(r.type==RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
+                continue;
             enemyAdvanceStrength += 1000/(10+rc.senseRubble(r.location));
         }
-        if(enemyAdvanceStrength * 2 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation())) && rc.isActionReady()) {
-            //do the advance
+        //determine what our advance would be
+        {
             MapLocation from = rc.getLocation();
             Direction d = from.directionTo(nearest);
             MapLocation option1 = from.add(d);
@@ -127,6 +129,9 @@ public class Soldier extends Robot {
             else if(rc.canMove(d.rotateRight()))
                 toMove = d.rotateRight(); //rc.move(d.rotateRight());
             //return true;
+        }
+        if(!(toMove != null && enemyAdvanceStrength *1.5 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns()<8)) {
+            toMove = null; //don't advance if condition isn't met.
         }
         int myHoldStrength=0;
         for(RobotInfo r : friends) {
@@ -144,7 +149,28 @@ public class Soldier extends Robot {
                 enemyHoldStrength += 1000/(10+rc.senseRubble(r.location));
         }
         if(toMove==null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
-            moveInDirection(nearest.directionTo(rc.getLocation()));
+            //retreat
+            //always look for low rubble retreats
+            int myx = rc.getLocation().x;
+            int myy = rc.getLocation().y;
+            double best = 9999;
+            Direction bestD = null;
+            for(Direction d : Direction.allDirections()) {
+                MapLocation l = rc.getLocation().add(d);
+                if(!rc.onTheMap(l)) continue;
+                double r = 10 + rc.senseRubble(l);
+                if((l.x - myx) * (nearest.x - myx) < 0)
+                    r /= 1.5;
+                if((l.y - myy) * (nearest.y - myy) < 0)
+                    r /= 1.5;
+                if(r < best && rc.canMove(d)) {
+                    best = r;
+                    bestD = d;
+                }
+            }
+            if(bestD != null)
+                rc.move(bestD);
+            //moveInDirection(nearest.directionTo(rc.getLocation()));
             //return true;
         } else if(toMove!=null)
             rc.move(toMove);
