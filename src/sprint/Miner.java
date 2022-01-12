@@ -205,10 +205,26 @@ public class Miner extends Robot {
         int mapWidth = rc.getMapWidth();
         int mapHeight = rc.getMapHeight();
         
-        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead();
+        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
+        boolean[] ignorablePb = new boolean[pbLocs.length];
+        for(int i=0;i<pbLocs.length;i++) {
+            MapLocation pb = pbLocs[i];
+            if(rc.getLocation().distanceSquaredTo(pb) < 9) {
+                ignorablePb[i] = true;
+                continue;
+            }
+            for(RobotInfo r : nearby) {
+                if(r.type == RobotType.MINER) {
+                    if(r.location.distanceSquaredTo(pb) < rc.getLocation().distanceSquaredTo(pb)) {
+                        ignorablePb[i] = true;
+                        break;
+                    }
+                }
+            }
+        }
         for(int i=0;i<8;i++) {
             suitability[i] = 0;
-            String s = "pb";
+            //String s = "pb";
             MapLocation m = rc.getLocation().add(Robot.directions[i]);
             if(!rc.onTheMap(m))
                 continue;
@@ -216,53 +232,54 @@ public class Miner extends Robot {
                 continue;
             double y = 0, x = 0;
             double rubbleMult = 10.0/(10 + nearbyRubble[i]);
-            for(MapLocation pbLoc : pbLocs) {
-                if(m.distanceSquaredTo(pbLoc) < 4) continue;
+            for(int j=0;j<pbLocs.length;j++) {
+                MapLocation pbLoc = pbLocs[j];
+                if(ignorablePb[j]) continue;
                 y += rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
-                s += " "+ rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
+                //s += " "+ rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
             }
-            s += " f";
+            //s += " f";
             for(RobotInfo r : nearby) {
                 if(r.type != RobotType.MINER)
                     continue;
                 x -= 25.0/m.distanceSquaredTo(r.location);
-                s += " " + (-25.0/m.distanceSquaredTo(r.location));
+                //s += " " + (-25.0/m.distanceSquaredTo(r.location));
             }
             x -= 50.0/Math.sqrt(m.distanceSquaredTo(home));
-            s += " h " + (-50.0/Math.sqrt(m.distanceSquaredTo(home)))+" e";
+            //s += " h " + (-50.0/Math.sqrt(m.distanceSquaredTo(home)))+" e";
             for(RobotInfo r : enemies) {
                 switch(r.type) {
                 case SOLDIER:
                 case SAGE:
                 case WATCHTOWER:
                     x -= 100.0/m.distanceSquaredTo(r.location);
-                    s += " " + (-100.0/m.distanceSquaredTo(r.location));
+                    //s += " " + (-100.0/m.distanceSquaredTo(r.location));
                     break;
                 default:
                 }
             }
-            s += " a";
+            //s += " a";
             for(int j=0;j<8;j++) {
                 MapLocation m2 = recentLocations[(recentLocationsIndex+10-j)%10];
                 if(m2 == null) continue;
                 if(m2!= null && (m2.isAdjacentTo(m) || m2.equals(m))) {
                     x -= 10;
-                    s += " -10";
+                    //s += " -10";
                 }
             }
             boolean left = m.x < 10;
             boolean right = m.x + 10 > mapWidth;
             boolean bottom = m.y < 10;
             boolean top = m.y + 10 > mapHeight;
-            if(m.x < 10) {
-                x -= .2 * (10 - m.x); 
-            } else if(m.x + 10 > mapWidth) {
-                x -= .2 * (m.x + 10 - mapWidth);
+            if(m.x < 4) {
+                x -= .2 * (4 - m.x); 
+            } else if(m.x + 4 > mapWidth) {
+                x -= .2 * (m.x + 4 - mapWidth);
             }
-            if(m.y < 10) {
-                x -= .2 * (10 - m.y); 
-            } else if(m.y + 10 > mapHeight) {
-                x -= .2 * (m.y + 10 - mapHeight);
+            if(m.y < 4) {
+                x -= .2 * (4); 
+            } else if(m.y + 4 > mapHeight) {
+                x -= .2 * (m.y + 4 - mapHeight);
             }
             if(m.x < 4 && m.y < 4) {
                 x -= 10 * (10 - m.x); 
@@ -280,8 +297,7 @@ public class Miner extends Robot {
                 x -= 10 * (m.x + 10 - mapWidth); 
                 x -= 10 * (m.y + 10 - mapHeight);
             }
-            if(i==5 && rc.getID() == 13496)
-                rc.setIndicatorString(s);
+            //if(i==5 && rc.getID() == 13496) rc.setIndicatorString(s);
             suitability[i] = (int)(10 * (100 + y + x - 2.0/rubbleMult));
         }
             
