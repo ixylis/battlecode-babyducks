@@ -51,10 +51,10 @@ public class Archon extends Robot {
         if(myTurn) {
             int max_miners;
             switch(rc.getArchonCount()) {
-            case 1: max_miners=rc.getMapHeight()/20+rc.getMapWidth()/20+5; break;
-            case 2: max_miners=(rc.getMapHeight()/20+rc.getMapWidth()/20+2)*2; break;
-            case 3: max_miners=(rc.getMapHeight()/20+rc.getMapWidth()/20+1)*2; break;
-            case 4: max_miners=(rc.getMapHeight()/20+rc.getMapWidth()/20)*3; break;
+            case 1: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+1; break;
+            case 2: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+2; break;
+            case 3: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+3; break;
+            case 4: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+4; break;
             default: max_miners=0;
             }
             if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (max_miners > liveMiners || income>liveMiners*100 || rc.getRoundNum()<20)) {
@@ -77,10 +77,7 @@ public class Archon extends Robot {
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
         if(rc.getRoundNum()%160==0) {
-            rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+0, 0);
-            rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
-            rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
-            rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
+            super.clearUnexploredChunks();
         }
     }
     

@@ -22,24 +22,19 @@ public class Miner extends Robot {
         if(home == null)
             home = rc.getLocation();
     }
-    int lastMoveTurn = 0;
     int lastSuitabilityRound = 0;
+    MapLocation target;
     public void turn() throws GameActionException { 
-        boolean shouldDoSuitability = false;
-        if(rc.isMovementReady() && (rc.getRoundNum() - lastMoveTurn < 10)) {
+        //boolean shouldDoSuitability = false;
+        if(rc.isMovementReady() && (rc.getRoundNum() - lastSuitabilityRound < 10)) {
             movement();
-            if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
-                recentLocationsIndex = (recentLocationsIndex + 1)%10;
-                recentLocations[recentLocationsIndex] = rc.getLocation();
-                lastMoveTurn = rc.getRoundNum();
-            }
         } else {
-            lastMoveTurn = rc.getRoundNum();
-            shouldDoSuitability=true;
+            lastSuitabilityRound = rc.getRoundNum();
+            target = this.determineTarget();
             super.updateEnemySoliderLocations();
         }
-        if(rc.getID() != 13202)
-        rc.setIndicatorString(Arrays.toString(suitability));
+        //if(rc.getID() != 13202)
+        //rc.setIndicatorString(Arrays.toString(suitability));
         
         mine();
         if(rc.getRoundNum()%2 != rc.readSharedArray(INDEX_LIVE_MINERS)%2) {
@@ -59,14 +54,14 @@ public class Miner extends Robot {
         if(!rc.isMovementReady()) {
             super.writeUnexploredChunk();
         }
+        /*
         if(shouldDoSuitability && rc.getRoundNum() > 1+lastSuitabilityRound) {
             lastSuitabilityRound = rc.getRoundNum();
             this.determineMovementSuitability();
         }
+        */
             
     }
-    private MapLocation[] recentLocations=new MapLocation[10];
-    private int recentLocationsIndex = 0;
     
     /*
      * new mining plan:
@@ -191,6 +186,7 @@ public class Miner extends Robot {
         } else if(adjacentLead[bestDir] > 0) {
             return;
         } else {
+            /*
             int bestSuitability = -9999;
             int bestSuitabilityDir = 0;
             for(int i=0;i<8;i++) {
@@ -201,7 +197,88 @@ public class Miner extends Robot {
             }
             rc.move(Robot.directions[bestSuitabilityDir]);
             return;
+            */
+            if(target == null)
+                target = determineTarget();
+            moveToward(target);
         }
+    }
+    private MapLocation determineTarget() throws GameActionException {
+        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9)
+            return target;
+        RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
+        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
+        boolean[] ignorablePb = new boolean[pbLocs.length];
+        for(int i=0;i<pbLocs.length;i++) {
+            MapLocation pb = pbLocs[i];
+            if(rc.getLocation().distanceSquaredTo(pb) < 9) {
+                ignorablePb[i] = true;
+                continue;
+            }
+            for(RobotInfo r : nearby) {
+                if(r.type == RobotType.MINER) {
+                    if(r.location.distanceSquaredTo(pb) < rc.getLocation().distanceSquaredTo(pb)) {
+                        ignorablePb[i] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        for(int i=0;i<pbLocs.length;i++) {
+            if(!ignorablePb[i]) {
+                return pbLocs[i]; 
+            }
+        }
+        MapLocation m1 = rc.getLocation();
+        for(RobotInfo r : enemies) {
+            switch(r.type) {
+            case SOLDIER:
+            case SAGE:
+            case WATCHTOWER:
+                Direction d = r.location.directionTo(rc.getLocation());
+                m1 = m1.add(d).add(d).add(d);
+                //s += " " + (-100.0/m.distanceSquaredTo(r.location));
+                break;
+            default:
+            }
+        }
+        MapLocation nearestEnemy = getNearestEnemyChunk();
+        if(nearestEnemy != null && rc.getLocation().distanceSquaredTo(nearestEnemy) < 36) {
+            Direction d = nearestEnemy.directionTo(rc.getLocation());
+            m1 = m1.add(d).add(d).add(d);
+        }
+        if(!m1.equals(rc.getLocation())) {
+            return m1;
+        }
+        MapLocation recentLoc = recentLocations[(recentLocationsIndex+9)%10];
+        MapLocation m = recentLoc==null?rc.getLocation():rc.getLocation().add(recentLoc.directionTo(rc.getLocation()));
+        /*
+        if(m.x < rc.getMapWidth()/2) {
+            m = m.translate(4, 0);
+        } else {
+            m = m.translate(-4, 0);
+        }
+        if(m.y < rc.getMapHeight()/2) {
+            m = m.translate(0, 4);
+        } else {
+            m = m.translate(0, -4);
+        }
+        */
+        for(RobotInfo r : nearby) {
+            if(r.type == RobotType.MINER) {
+                int dx = rc.getLocation().x - r.location.x, dy = rc.getLocation().y - r.location.y;
+                m = m.translate(dx>0?4-dx:-4-dx,dy>0?4-dy:-4-dy);
+            }
+        }
+        //rc.setIndicatorString(m+"");
+        rc.setIndicatorDot(m, 255, 0, 0);
+        MapLocation result = super.getNearestUnexploredChunk(m);
+        if(result==null) {
+            super.clearUnexploredChunks();
+            return super.getNearestUnexploredChunk(m);
+        }
+        return result;
     }
     private int[] suitability = new int[8];
     private void determineMovementSuitability() throws GameActionException {

@@ -29,10 +29,18 @@ public abstract class Robot {
         rc = r;
         rng = new Random(rc.getID());
     }
+    MapLocation[] recentLocations=new MapLocation[10];
+    int recentLocationsIndex = 0;
+    int lastMoveTurn = 0;
     void run() {
         while(true) {
             try {
                 turn();
+                if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
+                    recentLocationsIndex = (recentLocationsIndex + 1)%10;
+                    recentLocations[recentLocationsIndex] = rc.getLocation();
+                    lastMoveTurn = rc.getRoundNum();
+                }
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
@@ -76,7 +84,166 @@ public abstract class Robot {
             rc.move(bestD);
         }
     }
-    public void moveToward(MapLocation l) throws GameActionException {
+    int frustration=0;
+    MapLocation lastMoveTowardTarget;
+    public void moveToward(MapLocation to) throws GameActionException {
+        if(Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        MapLocation me = rc.getLocation();
+        int dx = to.x - me.x, dy = to.y - me.y;
+        Direction ideal=null;
+        Direction ok=null, ok2=null;
+        Direction mediocre=null, mediocre2=null;
+        Direction sad=null, sad2=null;
+        boolean onDiagonal=false;
+        boolean onEdge=false;
+        if(dx < 0) {
+            if(dy < 0) {
+                ideal = Direction.SOUTHWEST;
+                if(dx < dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.SOUTH;
+                } else if(dx > dy){
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else if(dy > 0) {
+                ideal = Direction.NORTHWEST;
+                if(dx < -dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.NORTH;
+                } else if(dx > -dy){
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else {
+                ideal = Direction.WEST;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.SOUTHWEST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else if(dx > 0) {
+            if(dy < 0) {
+                ideal = Direction.SOUTHEAST;
+                if(-dx < dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.SOUTH;
+                } else if(-dx > dy){
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else if(dy > 0) {
+                ideal = Direction.NORTHEAST;
+                if(-dx < -dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.NORTH;
+                } else if(-dx > -dy){
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else {
+                ideal = Direction.EAST;
+                ok = Direction.NORTHEAST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else {
+            if(dy < 0) {
+                ideal = Direction.SOUTH;
+                ok = Direction.SOUTHWEST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else if(dy > 0) {
+                ideal = Direction.NORTH;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.NORTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else {
+                return; //we are at the destination!
+            }
+        }
+        MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9)%10];
+        Direction lastMoveDir = (recentLoc==null || to!=lastMoveTowardTarget)?null:me.directionTo(recentLoc);
+        lastMoveTowardTarget = to;
+        while(frustration < 111) {
+            rc.setIndicatorString("frustration "+frustration+" "+ideal);
+            Direction d = ideal;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = 0;
+                return;
+            }
+            d = ok;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal?15:5;
+                return;
+            }
+            d = ok2;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal?15:5;
+                return;
+            }
+            d = mediocre;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += onEdge?20:15;
+                return;
+            }
+            d = mediocre2;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += 20;
+                return;
+            }
+            frustration += 10;
+        }
+        frustration = 100;
+    }
+    public void moveTowardOld(MapLocation l) throws GameActionException {
         if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
@@ -233,7 +400,6 @@ public abstract class Robot {
                             return;
                         }
                     }
-                    
                 }
             }
         }
@@ -335,5 +501,11 @@ public abstract class Robot {
         //+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2)+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3)+" "+i+" "+j);
         if((rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) & (1<<j)) == 0)
             rc.writeSharedArray(INDEX_EXPLORED_CHUNKS+i, rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) | (1<<j));
+    }
+    void clearUnexploredChunks() throws GameActionException {
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+0, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
     }
 }
