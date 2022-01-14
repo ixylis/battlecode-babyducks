@@ -9,6 +9,9 @@ import static battlecode.common.RobotType.WATCHTOWER;
 import static java.lang.Math.sqrt;
 
 public abstract class Robot {
+    // for bash testing: DO NOT ADD WHITESPACE
+    public static final int SEED=19995;
+
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS=8;
@@ -74,12 +77,12 @@ public abstract class Robot {
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
     
-    public static final boolean DEBUG=true;
+    public static final boolean DEBUG = true;
     public final Random rng;
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
         rc = r;
-        rng = new Random(rc.getID());
+        rng = new Random(SEED);
         mapWidth = rc.getMapWidth();
         mapHeight = rc.getMapHeight();
         corners = new MapLocation[4];
@@ -125,7 +128,7 @@ public abstract class Robot {
                     recentLocations[recentLocationsIndex] = rc.getLocation();
                     lastMoveTurn = rc.getRoundNum();
                 }
-                getInfo();
+                updateInfo();
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
@@ -149,8 +152,8 @@ public abstract class Robot {
         Direction.NORTHWEST,
     };
     
-    public void getInfo() throws GameActionException {
-        if(Clock.getBytecodesLeft() < rc.getType().bytecodeLimit - 1000) // too few
+    public void updateInfo() throws GameActionException {
+        if(Clock.getBytecodesLeft() < rc.getType().bytecodeLimit - 2000) // too few
             return;
         
         updateEnemyHQs();
@@ -721,6 +724,23 @@ public abstract class Robot {
         rc.writeSharedArray(INDEX_GOODLOC_WORTH + chosen, (int) value);
 
         rc.setIndicatorDot(com, 0, 0, 0);
+    }
+
+    public MapLocation getNearestGoodLocation(MapLocation m) throws GameActionException {
+        MapLocation bestLoc = null;
+        double bestVal = 0;
+
+        for(int i = 0; i <= NUM_GOOD_LOCS; i++) {
+            MapLocation loc = intToLoc(rc.readSharedArray(INDEX_GOOD_LOC + i));
+            double value = rc.readSharedArray(INDEX_GOODLOC_WORTH + i) /
+                    sqrt(m.distanceSquaredTo(loc));
+            if(value > bestVal) {
+                bestVal = value;
+                bestLoc = loc;
+            }
+        }
+
+        return bestLoc;
     }
 
     public int computeStrength(RobotInfo[] robots) throws GameActionException {
