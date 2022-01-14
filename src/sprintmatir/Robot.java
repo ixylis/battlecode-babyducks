@@ -91,6 +91,7 @@ public abstract class Robot {
     void run() {
         while(true) {
             try {
+                myLoc = rc.getLocation();
                 turn();
                 if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
                     recentLocationsIndex = (recentLocationsIndex + 1)%10;
@@ -402,9 +403,9 @@ public abstract class Robot {
         MapLocation[] possibleEnemyHQs = new MapLocation[12];
         for(int i=0;i<4 && rc.readSharedArray(i+Robot.INDEX_MY_HQ)>0;i++) {
             MapLocation l = intToLoc(rc.readSharedArray(i+Robot.INDEX_MY_HQ));
-            possibleEnemyHQs[i*3] = new MapLocation(rc.getMapWidth()-l.x,l.y);
-            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,rc.getMapHeight()-l.y);
-            possibleEnemyHQs[i*3+2] = new MapLocation(rc.getMapWidth()-l.x,rc.getMapHeight()-l.y);
+            possibleEnemyHQs[i*3] = new MapLocation(rc.getMapWidth()-1-l.x,l.y);
+            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,rc.getMapHeight()-1-l.y);
+            possibleEnemyHQs[i*3+2] = new MapLocation(rc.getMapWidth()-1-l.x,rc.getMapHeight()-1-l.y);
         }
         int totalWeight = 0;
         for(int i=0;i<12;i++) {

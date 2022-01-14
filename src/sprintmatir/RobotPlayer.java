@@ -27,7 +27,7 @@ public strictfp class RobotPlayer {
     public static void run(RobotController rc) throws GameActionException {
         switch(rc.getType()) {
         case MINER: new Miner(rc).run();
-        case SOLDIER: new SoldierMod(rc).run();
+        case SOLDIER: new Soldier(rc).run();
         case ARCHON: new Archon(rc).run();
         case BUILDER: new Builder(rc).run();
         case WATCHTOWER: new Watchtower(rc).run();

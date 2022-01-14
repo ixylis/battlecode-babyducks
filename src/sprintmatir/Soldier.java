@@ -2,6 +2,9 @@ package sprintmatir;
 
 import battlecode.common.*;
 
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
+
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
         super(r);
@@ -75,7 +78,7 @@ public class Soldier extends Robot {
         Direction toMove=null;
         int myAdvanceStrength = 0;
         for(RobotInfo r:friends) {
-            if(r.type!=RobotType.SOLDIER)
+            if(r.type!= SOLDIER)
                 continue;
             //find the nearest enemy in sight range of this friend
             MapLocation from = r.location;
@@ -135,7 +138,7 @@ public class Soldier extends Robot {
         }
         int myHoldStrength=0;
         for(RobotInfo r : friends) {
-            if(r.type!=RobotType.SOLDIER)
+            if(r.type!= SOLDIER)
                 continue;
             int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if(infDist <= nearestInfDistance)
@@ -291,12 +294,14 @@ public class Soldier extends Robot {
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if(enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
-        for(RobotInfo r : enemies) {
-            if(!(bestTarget.type == RobotType.SOLDIER || bestTarget.type == RobotType.WATCHTOWER) && 
-                    (r.type==RobotType.SOLDIER || r.type == RobotType.WATCHTOWER))
-                bestTarget = r;
-            else if(bestTarget.health > r.health)
-                bestTarget = r;
+        for(RobotInfo rb : enemies) {
+            if((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) &&
+                    (rb.type == SOLDIER || rb.type == WATCHTOWER))
+            || ((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) ||
+                    (rb.type == SOLDIER || rb.type == WATCHTOWER)) &&
+                    bestTarget.health > rb.health)) {
+                bestTarget = rb;
+            }
         }
         if(rc.canAttack(bestTarget.location))
             rc.attack(bestTarget.location);

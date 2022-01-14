@@ -50,6 +50,7 @@ public class Archon extends Robot {
     }
 
     public void turn() throws GameActionException {
+        //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
 
         if(anomalyIndex < anomalies.length) {
             if(anomalies[anomalyIndex].roundNumber <= rc.getRoundNum()) {
@@ -83,13 +84,10 @@ public class Archon extends Robot {
             return;
         }
 
-        //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
         int income = rc.readSharedArray(INDEX_INCOME)/2;
-        prevIncome = income;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
-
         if(DEBUG) {
-            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = sprint.Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% sprint.Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
@@ -109,8 +107,16 @@ public class Archon extends Robot {
                 myTurn = false;
         }
         if(myTurn) {
-            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
-                if(build(MINER))
+            int max_miners;
+            switch(rc.getArchonCount()) {
+                case 1: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+1; break;
+                case 2: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+2; break;
+                case 3: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+3; break;
+                case 4: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+4; break;
+                default: max_miners=0;
+            }
+            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (max_miners > liveMiners || income>liveMiners*100 || rc.getRoundNum()<20)) {
+                if(buildMiner())
                     miners++;
             } else {
 //                RobotInfo [] robots = rc.senseNearbyRobots(ARCHON.visionRadiusSquared, rc.getTeam());
@@ -126,29 +132,50 @@ public class Archon extends Robot {
         }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
-        rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
+        rc.writeSharedArray(myHQIndex + sprint.Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
+        if(rc.getRoundNum()%160==0) {
+            super.clearUnexploredChunks();
+        }
+    }
 
-        if(rc.isActionReady()) {
-            RobotInfo best = rc.senseRobot(rc.getID());
-            for(RobotInfo r : rc.senseNearbyRobots(ARCHON.visionRadiusSquared, rc.getTeam())) {
-                if(r.mode == RobotMode.DROID) {
-                    if(best.mode != RobotMode.DROID) {
-                        best = r;
-                    } else {
-                        if(r.type == SOLDIER && best.type != SOLDIER) {
-                            best = r;
-                        } else if(r.health < best.health) {
-                            best = r;
-                        }
-                    }
-                }
-            }
+    //build a miner toward the nearest deposit
+    private boolean buildMiner() throws GameActionException {
+        MapLocation[] locs = rc.senseNearbyLocationsWithLead(ARCHON.visionRadiusSquared,5);
+        if(locs.length == 0 || rc.senseLead(myLoc) >= 5)
+            return build(MINER);
+        MapLocation closest = locs[0];
+        for(MapLocation l : locs) {
+            if(l.distanceSquaredTo(rc.getLocation()) < closest.distanceSquaredTo(rc.getLocation()))
+                closest = l;
+        }
 
-            if(rc.canRepair(best.location)) {
-                rc.repair(best.location);
+        return buildInDirection(MINER, rc.getLocation().directionTo(closest));
+    }
+    private boolean buildInDirection(RobotType t, Direction d) throws GameActionException {
+        if(rc.getTeamLeadAmount(rc.getTeam()) < t.buildCostLead)
+            return false;
+        Direction[] dirs = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight(),
+                d.rotateLeft().rotateLeft().rotateLeft(), d.rotateRight().rotateRight().rotateRight(), d.opposite()};
+        double[] suitability = {1,.5,.5,.3,.3,.2,.2,.1};
+        for(int i=0;i<8;i++) {
+            MapLocation l = rc.getLocation().add(dirs[i]);
+            if(rc.onTheMap(l))
+                suitability[i] /= 10 + rc.senseRubble(l);
+        }
+        double best = 0;
+        Direction bestD = null;
+        for(int i=0;i<8;i++) {
+            if(suitability[i]>best && rc.canBuildRobot(t, dirs[i])) {
+                best = suitability[i];
+                bestD = dirs[i];
             }
         }
+        if(bestD == null)
+            return false;
+        rc.buildRobot(t, bestD);
+        totalSpent += t.buildCostLead;
+        return true;
     }
 
     //builds in a random direction if legal
