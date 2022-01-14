@@ -1,14 +1,6 @@
 package sprint;
 
-import battlecode.common.Clock;
-import battlecode.common.Direction;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.RobotInfo;
-import battlecode.common.RobotType;
-
-import static java.lang.Math.sqrt;
+import battlecode.common.*;
 
 public class MinerMod extends Robot {
     int recentlyMined = 0;
@@ -163,7 +155,7 @@ public class MinerMod extends Robot {
                 pb23+pb33+pb32+pb31+pb21+pb11+pb12+pb13+pb22
         };
 
-        /*
+
         int bestDir = 8;
         int best = adjacentLead[8]*100/(10+rc.senseRubble(l));
         for(int i=0;i<8;i++) {
@@ -179,7 +171,7 @@ public class MinerMod extends Robot {
         MapLocation recentLoc = recentLocations[(recentLocationsIndex+6)%10];
         int dx = recentLoc==null?0:recentLoc.x - rc.getLocation().x;
         int dy = recentLoc==null?0:recentLoc.y - rc.getLocation().y;
-        // rc.setIndicatorString(bestDir + " adj lead "+adjacentLead[bestDir]+" dx "+dx+" dy "+dy+ " bc "+(b1-b0));
+        rc.setIndicatorString(bestDir + " adj lead "+adjacentLead[bestDir]+" dx "+dx+" dy "+dy+ " bc "+(b1-b0));
         if(bestDir<8) { //exclude CENTER
             rc.move(Robot.directions[bestDir]);
             return;
@@ -198,11 +190,10 @@ public class MinerMod extends Robot {
             rc.move(Robot.directions[bestSuitabilityDir]);
             return;
             */
-
             if(target == null)
                 target = determineTarget();
             moveToward(target);
-//        }
+        }
     }
     private MapLocation determineTarget() throws GameActionException {
         if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9)
@@ -274,10 +265,11 @@ public class MinerMod extends Robot {
         }
         //rc.setIndicatorString(m+"");
         rc.setIndicatorDot(m, 255, 0, 0);
-        MapLocation result = super.getNearestUnexploredChunk(m);
+        MapLocation result = rng.nextDouble() < 0.5 ?
+                getNearestUnexploredChunk(m) : getNearestGoodLocation(m);
         if(result==null) {
-            super.clearUnexploredChunks();
-            return super.getNearestUnexploredChunk(m);
+            clearUnexploredChunks();
+            return getNearestUnexploredChunk(m);
         }
         return result;
     }
@@ -290,6 +282,8 @@ public class MinerMod extends Robot {
             MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
             nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
         }
+        int mapWidth = rc.getMapWidth();
+        int mapHeight = rc.getMapHeight();
 
         MapLocation recentLoc = recentLocations[(recentLocationsIndex+6)%10];
         if(recentLoc ==null) recentLoc = rc.getLocation();
@@ -333,32 +327,25 @@ public class MinerMod extends Robot {
                 y += rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
                 //s += " "+ rc.senseLead(pbLoc)/m.distanceSquaredTo(pbLoc);
             }
-            if(y == 0) {
-                for (int j = 0; j < NUM_GOOD_LOCS; j++) {
-                    y += (int) (0.1 * rc.readSharedArray(INDEX_GOODLOC_WORTH + i) /
-                            (m.distanceSquaredTo(intToLoc(
-                                    rc.readSharedArray(INDEX_GOOD_LOC + i)))));
-                }
-            }
             if(unexplored!=null)
-                x += 10 * sqrt(m.distanceSquaredTo(unexplored));
+                x -= 10 * Math.sqrt(m.distanceSquaredTo(unexplored));
             if(nearestEnemy!=null)
-                x += 100 * sqrt(m.distanceSquaredTo(nearestEnemy));
+                x += 100 * Math.sqrt(m.distanceSquaredTo(nearestEnemy));
             //s += " f";
             for(RobotInfo r : nearby) {
                 if(r.type != RobotType.MINER)
                     continue;
-                x += 25.0/m.distanceSquaredTo(r.location);
+                x -= 25.0/m.distanceSquaredTo(r.location);
                 //s += " " + (-25.0/m.distanceSquaredTo(r.location));
             }
-            x += 1.0/ sqrt(m.distanceSquaredTo(home));
+            x -= 1.0/Math.sqrt(m.distanceSquaredTo(home));
             //s += " h " + (-50.0/Math.sqrt(m.distanceSquaredTo(home)))+" e";
             for(RobotInfo r : enemies) {
                 switch(r.type) {
                     case SOLDIER:
                     case SAGE:
                     case WATCHTOWER:
-                        x += 100.0/sqrt(m.distanceSquaredTo(r.location));
+                        x -= 100.0/m.distanceSquaredTo(r.location);
                         //s += " " + (-100.0/m.distanceSquaredTo(r.location));
                         break;
                     default:
@@ -369,10 +356,11 @@ public class MinerMod extends Robot {
                 MapLocation m2 = recentLocations[(recentLocationsIndex+10-j)%10];
                 if(m2 == null) continue;
                 if(m2!= null && (m2.isAdjacentTo(m) || m2.equals(m))) {
-                    x += 10;
+                    x -= 10;
                     //s += " -10";
                 }
             }
+
             /*
             boolean left = m.x < 10;
             boolean right = m.x + 10 > mapWidth;
@@ -407,11 +395,9 @@ public class MinerMod extends Robot {
             */
             //if(i==3 && rc.getID() == 13202) rc.setIndicatorString(s);
             //if(rc.getRoundNum()==70) rc.resign();
-            suitability[i] = (int)(100 * (y * rubbleMult - x / rubbleMult));
-            if(i==0) {
-                rc.setIndicatorString("x: " + x + "y: " + y);
-            }
+            suitability[i] = (int)(10 * (100 + y + x - 2.0/rubbleMult));
         }
+
     }
     private void mine() throws GameActionException {
         MapLocation l = rc.getLocation();
