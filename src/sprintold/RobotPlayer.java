@@ -1,7 +1,6 @@
-package sprintmatir;
+package sprintold;
 
-import battlecode.common.GameActionException;
-import battlecode.common.RobotController;
+import battlecode.common.*;
 
 /**
  * RobotPlayer is the class that describes your main robot strategy.

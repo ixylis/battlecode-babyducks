@@ -1,8 +1,12 @@
 package sprint;
 
+import battlecode.common.*;
+
 import java.util.Random;
 
-import battlecode.common.*;
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
+import static java.lang.Math.sqrt;
 
 public abstract class Robot {
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
@@ -11,16 +15,64 @@ public abstract class Robot {
     public static final int INDEX_INCOME=9;
     public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
-    public static final int INDEX_HQ_SPENDING=20; //4 ints, one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
     public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
+    public static final int NUM_GOOD_LOCS = 18; // this should be reduced if more ints are needed
+    public static final int INDEX_GOOD_LOC = 28; // n approximate "good" (aka lead heavy) locations)
+    public static final int INDEX_GOODLOC_WORTH = INDEX_GOOD_LOC + NUM_GOOD_LOCS; // measures of their "goodness"
+
+    public static final double HEALTH_FACTOR = 0.2;
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     
+    int mapWidth;
+    int mapHeight;    
+    MapLocation myLoc;
+    MapLocation[] corners;
+    RobotType myType;
+
+    abstract static class Weightage {abstract double weight(Direction d);}
+
+    class RubbleWeight extends Weightage {
+
+        @Override
+        double weight(Direction d) {
+            try {
+                if(rc.canSenseLocation(myLoc.add(d)))
+                    return 1000 / (10.0 + rc.senseRubble(myLoc.add(d)));
+                else
+                    return 0;
+            } catch(GameActionException e) {
+                e.printStackTrace();
+            }
+
+            return 0.0;
+        }
+    }
+    RubbleWeight rubbleWeight = new RubbleWeight();
+
+    class TargetWeight extends Weightage {
+
+        MapLocation targetLoc;
+
+        TargetWeight(MapLocation targetLoc) {
+            this.targetLoc = targetLoc;
+        }
+
+        @Override
+        double weight(Direction d) {
+            MapLocation newLoc = myLoc.add(d);
+            double curDist = myLoc.distanceSquaredTo(targetLoc);
+            double newDist = newLoc.distanceSquaredTo(targetLoc);
+            if(newDist > curDist) return 1;
+            return (10 * (sqrt(curDist) - sqrt(newDist)) + 1) * (1 + rubbleWeight.weight(d));
+        }
+    }
+
     /*
      * intention is for each enemy seen within the last 20 rounds is in here
      * but only put distinct entries if they are more than 4 tiles apart.
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
-    
     
     public static final boolean DEBUG=true;
     public final Random rng;
@@ -28,19 +80,52 @@ public abstract class Robot {
     Robot(RobotController r) throws GameActionException {
         rc = r;
         rng = new Random(rc.getID());
+        mapWidth = rc.getMapWidth();
+        mapHeight = rc.getMapHeight();
+        corners = new MapLocation[4];
+        corners[0] = new MapLocation(0, 0);
+        corners[1] = new MapLocation(mapWidth - 1, 0);
+        corners[2] = new MapLocation(0, mapHeight - 1);
+        corners[3] = new MapLocation(mapWidth - 1, mapHeight - 1);
+//        corners[4] = new MapLocation(mapWidth / 2, 0);
+//        corners[5] = new MapLocation(0, mapHeight / 2);
+//        corners[6] = new MapLocation(mapWidth / 2, mapHeight / 2);
+//        corners[7] = new MapLocation(mapWidth / 2, mapHeight / 2);
+//        corners[8] = new MapLocation(mapWidth - 1, mapHeight / 2);
+        myType = rc.getType();
+        
+        if(rc.readSharedArray(INDEX_GOODLOC_WORTH) == 0) {
+            for(int i=0;i<4;i++) {
+                rc.writeSharedArray(INDEX_GOOD_LOC + 0, locToInt(corners[i]));
+                rc.writeSharedArray(INDEX_GOODLOC_WORTH + i, 10);
+            }
+
+            for(int i = 0; i < NUM_GOOD_LOCS; i++) {
+                rc.writeSharedArray(INDEX_GOOD_LOC + i, 
+                        locToInt(randLoc()));
+                rc.writeSharedArray(INDEX_GOODLOC_WORTH + i, 1);
+            }
+        }
     }
+    
+    public MapLocation randLoc() {
+        return new MapLocation(rng.nextInt(mapWidth), rng.nextInt(mapHeight));
+    }
+
     MapLocation[] recentLocations=new MapLocation[10];
     int recentLocationsIndex = 0;
     int lastMoveTurn = 0;
     void run() {
         while(true) {
             try {
+                myLoc = rc.getLocation();
                 turn();
                 if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
                     recentLocationsIndex = (recentLocationsIndex + 1)%10;
                     recentLocations[recentLocationsIndex] = rc.getLocation();
                     lastMoveTurn = rc.getRoundNum();
                 }
+                getInfo();
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
@@ -64,26 +149,41 @@ public abstract class Robot {
         Direction.NORTHWEST,
     };
     
+    public void getInfo() throws GameActionException {
+        if(Clock.getBytecodesLeft() < rc.getType().bytecodeLimit - 1000) // too few
+            return;
+        
+        updateEnemyHQs();
+        updateEnemySoliderLocations();
+        updateGoodLocs();
+    }
+
     public void moveInDirection(Direction d) throws GameActionException {
+        Direction moveDir = bestMove(d);
+        if(rc.canMove(moveDir))
+            rc.move(moveDir);
+    }
+
+    public Direction bestMove(Direction d) throws GameActionException {
         Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
         double[] suitability = {1,.5,.5,.1,.1};
         for(int i=0;i<5;i++) {
             MapLocation l = rc.getLocation().add(dd[i]);
             if(rc.onTheMap(l))
                 suitability[i] /= 10 + rc.senseRubble(l);
+
         }
         double best = 0;
-        Direction bestD = null;
+        Direction bestD = Direction.CENTER;
         for(int i=0;i<5;i++) {
             if(suitability[i]>best && rc.canMove(dd[i])) {
                 best = suitability[i];
                 bestD = dd[i];
             }
         }
-        if(bestD != null) {
-            rc.move(bestD);
-        }
+        return bestD;
     }
+
     int frustration=0;
     MapLocation lastMoveTowardTarget;
     public void moveToward(MapLocation to) throws GameActionException {
@@ -258,15 +358,66 @@ public abstract class Robot {
         }
         moveInDirection(rc.getLocation().directionTo(l));
     }
+
+    public void moveTowardMatir(MapLocation l) throws GameActionException {
+        moveTowardMatir(l, 0.05);
+    }
+
+    public void moveTowardMatir(MapLocation l, double randomness) throws GameActionException {
+        if(Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        if(!rc.isMovementReady()) return;
+        if(rc.getLocation().equals(l)) return;
+        if(rc.getLocation().isAdjacentTo(l)) {
+            Direction d = rc.getLocation().directionTo(l);
+            if(rc.canMove(d))
+                rc.move(d);
+            return;
+        }
+        Direction d = rc.getLocation().directionTo(l);
+        Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
+        Direction moveDir = rng.nextDouble() < randomness ?
+                randDirByWeight(dd, new TargetWeight(l)) : bestMove(d);
+        if(rc.canMove(moveDir)) rc.move(moveDir);
+    }
+
+    public Direction randDirByWeight(Direction[] dirs, Weightage wt) {
+
+        double[] cwt = new double[dirs.length+1];
+        cwt[0] = 0;
+
+        for(int i=1;i<=dirs.length;++i)
+        {
+            cwt[i] = cwt[i-1] + wt.weight(dirs[i-1]);
+        }
+
+        if(cwt[dirs.length] == 0) return null;
+
+        for(int i=1;i<=dirs.length;++i)
+        {
+            cwt[i] /= cwt[dirs.length];
+        }
+
+        double r = rng.nextDouble();
+        int i = 0;
+        while(cwt[i] < r) i++;
+
+        return dirs[i-1];
+    }
+
     private MapLocation wanderTarget=null;
     private int lastWanderProgress = 0; //the last turn which we wandered closer to our destination
     public void wander() throws GameActionException {
-        while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10 || lastWanderProgress+20 < rc.getRoundNum()) {
-            wanderTarget = new MapLocation(rng.nextInt(rc.getMapWidth()),rng.nextInt(rc.getMapHeight()));
+        while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10) {
+            wanderTarget = rng.nextDouble() < 0.5 ?
+                    corners[rng.nextInt(4)] :
+                    new MapLocation(rng.nextInt(mapWidth), rng.nextInt(mapHeight));
             lastWanderProgress = rc.getRoundNum();
         }
         MapLocation old = rc.getLocation();
-        moveToward(wanderTarget);
+        moveTowardMatir(wanderTarget, 1);
         if(rc.getLocation().distanceSquaredTo(wanderTarget) < old.distanceSquaredTo(wanderTarget))
             lastWanderProgress = rc.getRoundNum();
     }
@@ -289,9 +440,9 @@ public abstract class Robot {
         MapLocation[] possibleEnemyHQs = new MapLocation[12];
         for(int i=0;i<4 && rc.readSharedArray(i+Robot.INDEX_MY_HQ)>0;i++) {
             MapLocation l = intToLoc(rc.readSharedArray(i+Robot.INDEX_MY_HQ));
-            possibleEnemyHQs[i*3] = new MapLocation(rc.getMapWidth()-l.x,l.y);
-            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,rc.getMapHeight()-l.y);
-            possibleEnemyHQs[i*3+2] = new MapLocation(rc.getMapWidth()-l.x,rc.getMapHeight()-l.y);
+            possibleEnemyHQs[i*3] = new MapLocation(mapWidth-1-l.x,l.y);
+            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,mapHeight-1-l.y);
+            possibleEnemyHQs[i*3+2] = new MapLocation(mapWidth-1-l.x,mapHeight-1-l.y);
         }
         int totalWeight = 0;
         for(int i=0;i<12;i++) {
@@ -400,6 +551,7 @@ public abstract class Robot {
                             return;
                         }
                     }
+                    
                 }
             }
         }
@@ -416,12 +568,13 @@ public abstract class Robot {
         }
         return nearest;
     }
+
     MapLocation getNearestUnexploredChunk(MapLocation l) throws GameActionException {
         int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
         int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
         int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
         int x3 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3);
-        int mh = rc.getMapHeight(), mw = rc.getMapWidth();
+        int mh = mapHeight, mw = mapWidth;
         MapLocation m;
         MapLocation best = null;
         int bestD = 9999;
@@ -489,12 +642,12 @@ public abstract class Robot {
         if((x3 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
         if((x3 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
         if((x3 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
-        
+
         return best;
     }
     void writeUnexploredChunk() throws GameActionException {
         MapLocation l = rc.getLocation();
-        int k = l.x*8/rc.getMapWidth() + (l.y*8/rc.getMapHeight())*8;
+        int k = l.x*8/mapWidth + (l.y*8/mapHeight)*8;
         //rc.setIndicatorString(""+k);
         int i=k/16, j = k%16;
         //rc.setIndicatorString(Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0))+" "+Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1))
@@ -507,5 +660,77 @@ public abstract class Robot {
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
+    }
+    
+    void updateGoodLocs() throws GameActionException {
+        MapLocation[] curLocs = new MapLocation[NUM_GOOD_LOCS];
+        int[] goodness = new int[NUM_GOOD_LOCS];
+        int worst = 0;
+        double comdx = 0, comdy = 0;
+        int mass = 0;
+        
+        for(int i = 0; i < NUM_GOOD_LOCS; i++) {
+            curLocs[i] = intToLoc(rc.readSharedArray(INDEX_GOOD_LOC + i));
+            goodness[i] = rc.readSharedArray(INDEX_GOODLOC_WORTH + i);
+            
+            if(goodness[i] < goodness[worst]) {
+                worst = i;
+            }
+        }
+        
+        MapLocation[] leads = rc.senseNearbyLocationsWithLead();
+        
+        for(MapLocation loc : leads) {
+            int amt = rc.senseLead(loc);
+            comdx = ((loc.x - myLoc.x) * amt + comdx * mass) / (amt + mass);
+            comdy = ((loc.y - myLoc.y) * amt + comdy * mass) / (amt + mass);
+            mass += amt;
+        }
+        
+        MapLocation com = myLoc.translate((int) comdx, (int) comdy);
+        double value = 0;
+        for(MapLocation loc : leads) {
+            value += 100 * rc.senseLead(loc) / (1 + sqrt(com.distanceSquaredTo(loc)));
+        }
+
+        if(goodness[worst] > value) { // even the worst old location is better
+            return;
+        }
+
+        int conflicts = 0;
+        int confi = 0;
+
+        for(int i = 0; i < NUM_GOOD_LOCS; i++) {
+            if(com.distanceSquaredTo(curLocs[i]) < 25) {
+                conflicts++;
+                confi = i;
+            }
+        }
+
+        if(conflicts >= 2) return; // better to keep more separate locations
+
+        int chosen = worst;
+        if(conflicts == 1) {
+            if(goodness[confi] < value) {
+                // new position better
+                chosen = confi;
+            }
+        }
+
+        rc.writeSharedArray(INDEX_GOOD_LOC + chosen, locToInt(com));
+        rc.writeSharedArray(INDEX_GOODLOC_WORTH + chosen, (int) value);
+
+        rc.setIndicatorDot(com, 0, 0, 0);
+    }
+
+    public int computeStrength(RobotInfo[] robots) throws GameActionException {
+        int strength = 0;
+
+        for(RobotInfo r: robots) {
+            if(r.getType() == SOLDIER || r.getType() == WATCHTOWER)
+                strength += 1000 / (10 + rc.senseRubble(r.location)) + r.health * HEALTH_FACTOR;
+        }
+
+        return strength;
     }
 }

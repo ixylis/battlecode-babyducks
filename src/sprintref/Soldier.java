@@ -1,6 +1,13 @@
 package sprintref;
 
-import battlecode.common.*;
+import battlecode.common.Clock;
+import battlecode.common.Direction;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
+import battlecode.common.RobotType;
+import battlecode.common.Team;
 
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
@@ -17,8 +24,8 @@ public class Soldier extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
-        
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        //bytecodeTest();
     }
     /*
      * micro
@@ -102,16 +109,18 @@ public class Soldier extends Robot {
                 to = from;
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
-            if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) < nearestInfDistance)
-                myAdvanceStrength += 1000/(10+rubbleTo);
+            if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) <= 3)
+                myAdvanceStrength += 1000/(10+rubbleTo) * 10/(10 + rc.senseRubble(r.location));
         }
         //now time to calculate the enemy strength
         int enemyAdvanceStrength=0;
         for(RobotInfo r:enemies) {
+            if(r.type==RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
+                continue;
             enemyAdvanceStrength += 1000/(10+rc.senseRubble(r.location));
         }
-        if(enemyAdvanceStrength * 2 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation())) && rc.isActionReady()) {
-            //do the advance
+        //determine what our advance would be
+        {
             MapLocation from = rc.getLocation();
             Direction d = from.directionTo(nearest);
             MapLocation option1 = from.add(d);
@@ -127,6 +136,9 @@ public class Soldier extends Robot {
             else if(rc.canMove(d.rotateRight()))
                 toMove = d.rotateRight(); //rc.move(d.rotateRight());
             //return true;
+        }
+        if(!(toMove != null && enemyAdvanceStrength *1.5 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns()<8)) {
+            toMove = null; //don't advance if condition isn't met.
         }
         int myHoldStrength=0;
         for(RobotInfo r : friends) {
@@ -144,7 +156,28 @@ public class Soldier extends Robot {
                 enemyHoldStrength += 1000/(10+rc.senseRubble(r.location));
         }
         if(toMove==null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
-            moveInDirection(nearest.directionTo(rc.getLocation()));
+            //retreat
+            //always look for low rubble retreats
+            int myx = rc.getLocation().x;
+            int myy = rc.getLocation().y;
+            double best = 9999;
+            Direction bestD = null;
+            for(Direction d : Direction.allDirections()) {
+                MapLocation l = rc.getLocation().add(d);
+                if(!rc.onTheMap(l)) continue;
+                double r = 10 + rc.senseRubble(l);
+                if((l.x - myx) * (nearest.x - myx) < 0)
+                    r /= 1.5;
+                if((l.y - myy) * (nearest.y - myy) < 0)
+                    r /= 1.5;
+                if(r < best && rc.canMove(d)) {
+                    best = r;
+                    bestD = d;
+                }
+            }
+            if(bestD != null)
+                rc.move(bestD);
+            //moveInDirection(nearest.directionTo(rc.getLocation()));
             //return true;
         } else if(toMove!=null)
             rc.move(toMove);
@@ -152,7 +185,7 @@ public class Soldier extends Robot {
             //holding; priority is the high ground.
             int minRubble = rc.senseRubble(rc.getLocation());
             Direction minRubbleDir = Direction.CENTER;
-            for(Direction d : directions) {
+            for(Direction d : Robot.directions) {
                 int rubble = rc.senseRubble(rc.getLocation().add(d));
                 if(rubble < minRubble && rc.canMove(d)) {
                     minRubble = rubble;
@@ -167,13 +200,12 @@ public class Soldier extends Robot {
         rc.setIndicatorString("adv "+myAdvanceStrength + " oppAdv "+enemyAdvanceStrength + " hold "+myHoldStrength+" oppHold "+enemyHoldStrength);
         return true;
     }
-
     private void bytecodeTest() {
         int[][] a = new int[10][10];
-        int c55 = 0;
+        int c55 = rc.getRoundNum();
         int c77;
         int b = Clock.getBytecodeNum();
-        a[5][5] = 5;
+        a[5][5] = 5+7+9+11+8+4+5+2+4+c55;
         int b1 = Clock.getBytecodeNum();
         c55 = rc.getID()%10;
         int b2 = Clock.getBytecodeNum();
@@ -185,6 +217,10 @@ public class Soldier extends Robot {
         
         rc.setIndicatorString("[][] = "+(b1-b)+" normal "+(b2-b1)+" "+(b3-b2)+" read "+(b4-b3)+" "+c77);
     }
+    
+    
+    
+    
     
     private void movement() throws GameActionException {
         if(micro())

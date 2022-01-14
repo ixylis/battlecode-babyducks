@@ -1,13 +1,9 @@
 package sprint;
 
-import battlecode.common.Clock;
-import battlecode.common.Direction;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.RobotInfo;
-import battlecode.common.RobotType;
-import battlecode.common.Team;
+import battlecode.common.*;
+
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
 
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
@@ -24,8 +20,8 @@ public class Soldier extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
-        //bytecodeTest();
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        
     }
     /*
      * micro
@@ -82,7 +78,7 @@ public class Soldier extends Robot {
         Direction toMove=null;
         int myAdvanceStrength = 0;
         for(RobotInfo r:friends) {
-            if(r.type!=RobotType.SOLDIER)
+            if(r.type!= SOLDIER)
                 continue;
             //find the nearest enemy in sight range of this friend
             MapLocation from = r.location;
@@ -142,7 +138,7 @@ public class Soldier extends Robot {
         }
         int myHoldStrength=0;
         for(RobotInfo r : friends) {
-            if(r.type!=RobotType.SOLDIER)
+            if(r.type!= SOLDIER)
                 continue;
             int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if(infDist <= nearestInfDistance)
@@ -185,7 +181,7 @@ public class Soldier extends Robot {
             //holding; priority is the high ground.
             int minRubble = rc.senseRubble(rc.getLocation());
             Direction minRubbleDir = Direction.CENTER;
-            for(Direction d : Robot.directions) {
+            for(Direction d : directions) {
                 int rubble = rc.senseRubble(rc.getLocation().add(d));
                 if(rubble < minRubble && rc.canMove(d)) {
                     minRubble = rubble;
@@ -200,12 +196,13 @@ public class Soldier extends Robot {
         rc.setIndicatorString("adv "+myAdvanceStrength + " oppAdv "+enemyAdvanceStrength + " hold "+myHoldStrength+" oppHold "+enemyHoldStrength);
         return true;
     }
+
     private void bytecodeTest() {
         int[][] a = new int[10][10];
-        int c55 = rc.getRoundNum();
+        int c55 = 0;
         int c77;
         int b = Clock.getBytecodeNum();
-        a[5][5] = 5+7+9+11+8+4+5+2+4+c55;
+        a[5][5] = 5;
         int b1 = Clock.getBytecodeNum();
         c55 = rc.getID()%10;
         int b2 = Clock.getBytecodeNum();
@@ -217,10 +214,6 @@ public class Soldier extends Robot {
         
         rc.setIndicatorString("[][] = "+(b1-b)+" normal "+(b2-b1)+" "+(b3-b2)+" read "+(b4-b3)+" "+c77);
     }
-    
-    
-    
-    
     
     private void movement() throws GameActionException {
         if(micro())
@@ -283,6 +276,8 @@ public class Soldier extends Robot {
                 movementTarget=null;
             MapLocation x = super.getNearestEnemyChunk();
             if(x!=null) movementTarget=x;
+//            if(movementTarget == null)
+//                movementTarget = getNearestUnexploredChunk(rc.getLocation());
             if(movementTarget==null)
                 movementTarget = super.getRandomKnownEnemyHQ();
             if(movementTarget==null)
@@ -301,12 +296,14 @@ public class Soldier extends Robot {
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if(enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
-        for(RobotInfo r : enemies) {
-            if(!(bestTarget.type == RobotType.SOLDIER || bestTarget.type == RobotType.WATCHTOWER) && 
-                    (r.type==RobotType.SOLDIER || r.type == RobotType.WATCHTOWER))
-                bestTarget = r;
-            else if(bestTarget.health > r.health)
-                bestTarget = r;
+        for(RobotInfo rb : enemies) {
+            if((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) &&
+                    (rb.type == SOLDIER || rb.type == WATCHTOWER))
+            || ((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) ||
+                    (rb.type == SOLDIER || rb.type == WATCHTOWER)) &&
+                    bestTarget.health > rb.health)) {
+                bestTarget = rb;
+            }
         }
         if(rc.canAttack(bestTarget.location))
             rc.attack(bestTarget.location);

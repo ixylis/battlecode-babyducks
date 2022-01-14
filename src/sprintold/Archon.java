@@ -1,4 +1,4 @@
-package sprintref;
+package sprintold;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
@@ -20,7 +20,9 @@ public class Archon extends Robot {
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
+
     }
+
     private int lastTurnMoney=0;
     private int miners=0;
     private int totalSpent = 0;
@@ -49,16 +51,8 @@ public class Archon extends Robot {
                 myTurn = false;
         }
         if(myTurn) {
-            int max_miners;
-            switch(rc.getArchonCount()) {
-            case 1: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+1; break;
-            case 2: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+2; break;
-            case 3: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+3; break;
-            case 4: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+4; break;
-            default: max_miners=0;
-            }
-            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (max_miners > liveMiners || income>liveMiners*100 || rc.getRoundNum()<20)) {
-                if(buildMiner())
+            if(rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (income>(liveMiners-5)*25 || rc.getRoundNum()<20)) {
+                if(build(RobotType.MINER))
                     miners++;
             } else {
                 RobotInfo [] robots = rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam());
@@ -76,53 +70,21 @@ public class Archon extends Robot {
         super.updateEnemySoliderLocations();
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
-        if(rc.getRoundNum()%160==0) {
-            super.clearUnexploredChunks();
-        }
-    }
-    
-    //build a miner toward the nearest deposit
-    private boolean buildMiner() throws GameActionException {
-        MapLocation[] locs = rc.senseNearbyLocationsWithLead(rc.getType().visionRadiusSquared,5);
-        if(locs.length==0)
-            return build(RobotType.MINER);
-        MapLocation closest = locs[0];
-        for(MapLocation l : locs) {
-            if(l.distanceSquaredTo(rc.getLocation()) < closest.distanceSquaredTo(rc.getLocation()))
-                closest = l;
-        }
-        return buildInDirection(RobotType.MINER, rc.getLocation().directionTo(closest));
-        
-    }
-    private boolean buildInDirection(RobotType t, Direction d) throws GameActionException {
-        if(rc.getTeamLeadAmount(rc.getTeam()) < t.buildCostLead)
-            return false;
-        Direction[] dirs = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight(),
-                d.rotateLeft().rotateLeft().rotateLeft(), d.rotateRight().rotateRight().rotateRight(), d.opposite()};
-        double[] suitability = {1,.5,.5,.3,.3,.2,.2,.1};
-        for(int i=0;i<8;i++) {
-            MapLocation l = rc.getLocation().add(dirs[i]);
-            if(rc.onTheMap(l))
-                suitability[i] /= 10 + rc.senseRubble(l);
-        }
-        double best = 0;
-        Direction bestD = null;
-        for(int i=0;i<8;i++) {
-            if(suitability[i]>best && rc.canBuildRobot(t, dirs[i])) {
-                best = suitability[i];
-                bestD = dirs[i];
-            }
-        }
-        if(bestD == null)
-            return false;
-        rc.buildRobot(t, bestD);
-        totalSpent += t.buildCostLead;
-        return true;
     }
     //builds in a random direction if legal
     private boolean build(RobotType t) throws GameActionException {
+        if(rc.getTeamLeadAmount(rc.getTeam()) < t.getLeadWorth(1))
+            return false;
         int o = rng.nextInt(8);
-        return buildInDirection(t, directions[o]);
+        for(int i=0;i<8;i++) {
+            Direction dir = directions[(i+o)%8];
+            if(rc.canBuildRobot(t, dir)) {
+                rc.buildRobot(t, dir);
+                totalSpent += t.buildCostLead;
+                return true;
+            }
+        }
+        return false;
     }
 
 }

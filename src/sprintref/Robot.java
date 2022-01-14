@@ -11,7 +11,8 @@ public abstract class Robot {
     public static final int INDEX_INCOME=9;
     public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
-    public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    public static final int INDEX_HQ_SPENDING=20; //4 ints, one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     
     /*
@@ -28,10 +29,18 @@ public abstract class Robot {
         rc = r;
         rng = new Random(rc.getID());
     }
+    MapLocation[] recentLocations=new MapLocation[10];
+    int recentLocationsIndex = 0;
+    int lastMoveTurn = 0;
     void run() {
         while(true) {
             try {
                 turn();
+                if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
+                    recentLocationsIndex = (recentLocationsIndex + 1)%10;
+                    recentLocations[recentLocationsIndex] = rc.getLocation();
+                    lastMoveTurn = rc.getRoundNum();
+                }
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
@@ -75,7 +84,166 @@ public abstract class Robot {
             rc.move(bestD);
         }
     }
-    public void moveToward(MapLocation l) throws GameActionException {
+    int frustration=0;
+    MapLocation lastMoveTowardTarget;
+    public void moveToward(MapLocation to) throws GameActionException {
+        if(Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        MapLocation me = rc.getLocation();
+        int dx = to.x - me.x, dy = to.y - me.y;
+        Direction ideal=null;
+        Direction ok=null, ok2=null;
+        Direction mediocre=null, mediocre2=null;
+        Direction sad=null, sad2=null;
+        boolean onDiagonal=false;
+        boolean onEdge=false;
+        if(dx < 0) {
+            if(dy < 0) {
+                ideal = Direction.SOUTHWEST;
+                if(dx < dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.SOUTH;
+                } else if(dx > dy){
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else if(dy > 0) {
+                ideal = Direction.NORTHWEST;
+                if(dx < -dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.NORTH;
+                } else if(dx > -dy){
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else {
+                ideal = Direction.WEST;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.SOUTHWEST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else if(dx > 0) {
+            if(dy < 0) {
+                ideal = Direction.SOUTHEAST;
+                if(-dx < dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.SOUTH;
+                } else if(-dx > dy){
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else if(dy > 0) {
+                ideal = Direction.NORTHEAST;
+                if(-dx < -dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.NORTH;
+                } else if(-dx > -dy){
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else {
+                ideal = Direction.EAST;
+                ok = Direction.NORTHEAST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else {
+            if(dy < 0) {
+                ideal = Direction.SOUTH;
+                ok = Direction.SOUTHWEST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else if(dy > 0) {
+                ideal = Direction.NORTH;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.NORTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else {
+                return; //we are at the destination!
+            }
+        }
+        MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9)%10];
+        Direction lastMoveDir = (recentLoc==null || to!=lastMoveTowardTarget)?null:me.directionTo(recentLoc);
+        lastMoveTowardTarget = to;
+        while(frustration < 111) {
+            rc.setIndicatorString("frustration "+frustration+" "+ideal);
+            Direction d = ideal;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = 0;
+                return;
+            }
+            d = ok;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal?15:5;
+                return;
+            }
+            d = ok2;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal?15:5;
+                return;
+            }
+            d = mediocre;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += onEdge?20:15;
+                return;
+            }
+            d = mediocre2;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += 20;
+                return;
+            }
+            frustration += 10;
+        }
+        frustration = 100;
+    }
+    public void moveTowardOld(MapLocation l) throws GameActionException {
         if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
@@ -216,7 +384,7 @@ public abstract class Robot {
             
         }
         for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
-            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER) {
+            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER || r.type == RobotType.MINER) {
                 int x = Robot.chunkToInt(r.location);
                 boolean found=false;
                 for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
@@ -232,7 +400,6 @@ public abstract class Robot {
                             return;
                         }
                     }
-                    
                 }
             }
         }
@@ -248,5 +415,97 @@ public abstract class Robot {
             }
         }
         return nearest;
+    }
+    MapLocation getNearestUnexploredChunk(MapLocation l) throws GameActionException {
+        int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
+        int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
+        int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
+        int x3 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3);
+        int mh = rc.getMapHeight(), mw = rc.getMapWidth();
+        MapLocation m;
+        MapLocation best = null;
+        int bestD = 9999;
+        if((x0 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        
+        return best;
+    }
+    void writeUnexploredChunk() throws GameActionException {
+        MapLocation l = rc.getLocation();
+        int k = l.x*8/rc.getMapWidth() + (l.y*8/rc.getMapHeight())*8;
+        //rc.setIndicatorString(""+k);
+        int i=k/16, j = k%16;
+        //rc.setIndicatorString(Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0))+" "+Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1))
+        //+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2)+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3)+" "+i+" "+j);
+        if((rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) & (1<<j)) == 0)
+            rc.writeSharedArray(INDEX_EXPLORED_CHUNKS+i, rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) | (1<<j));
+    }
+    void clearUnexploredChunks() throws GameActionException {
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+0, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
     }
 }

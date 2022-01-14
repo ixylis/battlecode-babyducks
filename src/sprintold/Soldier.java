@@ -1,9 +1,6 @@
-package sprintmatir;
+package sprintold;
 
 import battlecode.common.*;
-
-import static battlecode.common.RobotType.SOLDIER;
-import static battlecode.common.RobotType.WATCHTOWER;
 
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
@@ -78,7 +75,7 @@ public class Soldier extends Robot {
         Direction toMove=null;
         int myAdvanceStrength = 0;
         for(RobotInfo r:friends) {
-            if(r.type!= SOLDIER)
+            if(r.type!=RobotType.SOLDIER)
                 continue;
             //find the nearest enemy in sight range of this friend
             MapLocation from = r.location;
@@ -105,18 +102,16 @@ public class Soldier extends Robot {
                 to = from;
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
-            if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) <= 3)
-                myAdvanceStrength += 1000/(10+rubbleTo) * 10/(10 + rc.senseRubble(r.location));
+            if(Math.max(Math.abs(to.x - rc.getLocation().x),Math.abs(to.y - rc.getLocation().y)) < nearestInfDistance)
+                myAdvanceStrength += 1000/(10+rubbleTo);
         }
         //now time to calculate the enemy strength
         int enemyAdvanceStrength=0;
         for(RobotInfo r:enemies) {
-            if(r.type==RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
-                continue;
             enemyAdvanceStrength += 1000/(10+rc.senseRubble(r.location));
         }
-        //determine what our advance would be
-        {
+        if(enemyAdvanceStrength * 2 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation())) && rc.isActionReady()) {
+            //do the advance
             MapLocation from = rc.getLocation();
             Direction d = from.directionTo(nearest);
             MapLocation option1 = from.add(d);
@@ -133,12 +128,9 @@ public class Soldier extends Robot {
                 toMove = d.rotateRight(); //rc.move(d.rotateRight());
             //return true;
         }
-        if(!(toMove != null && enemyAdvanceStrength *1.5 < myAdvanceStrength + 1000/(10+rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns()<8)) {
-            toMove = null; //don't advance if condition isn't met.
-        }
         int myHoldStrength=0;
         for(RobotInfo r : friends) {
-            if(r.type!= SOLDIER)
+            if(r.type!=RobotType.SOLDIER)
                 continue;
             int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if(infDist <= nearestInfDistance)
@@ -152,28 +144,7 @@ public class Soldier extends Robot {
                 enemyHoldStrength += 1000/(10+rc.senseRubble(r.location));
         }
         if(toMove==null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
-            //retreat
-            //always look for low rubble retreats
-            int myx = rc.getLocation().x;
-            int myy = rc.getLocation().y;
-            double best = 9999;
-            Direction bestD = null;
-            for(Direction d : Direction.allDirections()) {
-                MapLocation l = rc.getLocation().add(d);
-                if(!rc.onTheMap(l)) continue;
-                double r = 10 + rc.senseRubble(l);
-                if((l.x - myx) * (nearest.x - myx) < 0)
-                    r /= 1.5;
-                if((l.y - myy) * (nearest.y - myy) < 0)
-                    r /= 1.5;
-                if(r < best && rc.canMove(d)) {
-                    best = r;
-                    bestD = d;
-                }
-            }
-            if(bestD != null)
-                rc.move(bestD);
-            //moveInDirection(nearest.directionTo(rc.getLocation()));
+            moveInDirection(nearest.directionTo(rc.getLocation()));
             //return true;
         } else if(toMove!=null)
             rc.move(toMove);
@@ -294,14 +265,12 @@ public class Soldier extends Robot {
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if(enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
-        for(RobotInfo rb : enemies) {
-            if((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) &&
-                    (rb.type == SOLDIER || rb.type == WATCHTOWER))
-            || ((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) ||
-                    (rb.type == SOLDIER || rb.type == WATCHTOWER)) &&
-                    bestTarget.health > rb.health)) {
-                bestTarget = rb;
-            }
+        for(RobotInfo r : enemies) {
+            if(!(bestTarget.type == RobotType.SOLDIER || bestTarget.type == RobotType.WATCHTOWER) && 
+                    (r.type==RobotType.SOLDIER || r.type == RobotType.WATCHTOWER))
+                bestTarget = r;
+            else if(bestTarget.health > r.health)
+                bestTarget = r;
         }
         if(rc.canAttack(bestTarget.location))
             rc.attack(bestTarget.location);
