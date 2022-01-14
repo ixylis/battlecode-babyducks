@@ -24,7 +24,7 @@ public class Soldier extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+rc.getRoundNum()%Robot.NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+
         //bytecodeTest();
     }
     /*
@@ -59,6 +59,8 @@ public class Soldier extends Robot {
         else
             return d.rotateRight();
     }
+    RobotInfo[] recentEnemies = new RobotInfo[10];
+    int[] recentEnemiesRounds = new int[10];
     private boolean micro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());

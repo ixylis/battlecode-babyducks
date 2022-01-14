@@ -204,10 +204,10 @@ public class Miner extends Robot {
         }
     }
     private MapLocation determineTarget() throws GameActionException {
-        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9)
-            return target;
         RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
         RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9 && enemies.length==0)
+            return target;
         MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
         boolean[] ignorablePb = new boolean[pbLocs.length];
         for(int i=0;i<pbLocs.length;i++) {
