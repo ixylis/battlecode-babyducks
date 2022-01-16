@@ -128,6 +128,13 @@ public class Archon extends Robot {
                 build(RobotType.SOLDIER);
             }
         }
+        // heal nearby units if we haven't done anything else
+        if (rc.getActionCooldownTurns() == 0) {
+          for (RobotInfo robot : rc.senseNearbyRobots(RobotType.ARCHON.actionRadiusSquared, rc.getTeam())) {
+            if (robot.health < robot.type.health && rc.canRepair(robot.location))
+              rc.repair(robot.location);
+          }
+        }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
         rc.writeSharedArray(myHQIndex + sprint.Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
