@@ -1,7 +1,9 @@
-package sprint;
+package anthony;
 
-import static battlecode.common.RobotType.*;
 import battlecode.common.*;
+
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
 
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
@@ -20,7 +22,6 @@ public class Soldier extends Robot {
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
         rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
         
->>>>>>> b73e61f7abddc93bf35b68293ac662bc4495593a
     }
     /*
      * micro
@@ -54,8 +55,6 @@ public class Soldier extends Robot {
         else
             return d.rotateRight();
     }
-    RobotInfo[] recentEnemies = new RobotInfo[10];
-    int[] recentEnemiesRounds = new int[10];
     private boolean micro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());

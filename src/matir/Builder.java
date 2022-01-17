@@ -1,4 +1,4 @@
-package sprint;
+package matir;
 
 import battlecode.common.*;
 import static battlecode.common.RobotType.*;

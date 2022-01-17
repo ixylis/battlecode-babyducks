@@ -1,12 +1,17 @@
-package sprint;
+package matir;
+
+import battlecode.common.*;
 
 import java.util.Random;
 
-import static battlecode.common.RobotType.*;
-import battlecode.common.*;
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
 import static java.lang.Math.sqrt;
 
 public abstract class Robot {
+    // for bash testing: DO NOT ADD WHITESPACE
+    public static final int SEED=27875;
+
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS=8;
@@ -14,11 +19,19 @@ public abstract class Robot {
     public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
     public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
-    public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
+    public static final int NUM_GOOD_LOCS = 18; // this should be reduced if more ints are needed
+    public static final int INDEX_GOOD_LOC = 28; // n approximate "good" (aka lead heavy) locations)
+    public static final int INDEX_GOODLOC_WORTH = INDEX_GOOD_LOC + NUM_GOOD_LOCS; // measures of their "goodness"
+
     public static final double HEALTH_FACTOR = 0.2;
+    public static final int MAX_LEAD=1000; // trigger to start building watchtowers
+    
+    int mapWidth;
+    int mapHeight;    
     MapLocation myLoc;
     MapLocation[] corners;
+    RobotType myType;
 
     abstract static class Weightage {abstract double weight(Direction d);}
 
@@ -64,22 +77,42 @@ public abstract class Robot {
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
     
-    public static final boolean DEBUG=true;
+    public static final boolean DEBUG = true;
     public final Random rng;
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
         rc = r;
-        rng = new Random(rc.getID());
+        rng = new Random(SEED);
+        mapWidth = rc.getMapWidth();
+        mapHeight = rc.getMapHeight();
         corners = new MapLocation[4];
         corners[0] = new MapLocation(0, 0);
-        corners[1] = new MapLocation(rc.getMapWidth() - 1, 0);
-        corners[2] = new MapLocation(0, rc.getMapHeight() - 1);
-        corners[3] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() - 1);
-//        corners[4] = new MapLocation(rc.getMapWidth() / 2, 0);
-//        corners[5] = new MapLocation(0, rc.getMapHeight() / 2);
-//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-//        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-//        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
+        corners[1] = new MapLocation(mapWidth - 1, 0);
+        corners[2] = new MapLocation(0, mapHeight - 1);
+        corners[3] = new MapLocation(mapWidth - 1, mapHeight - 1);
+//        corners[4] = new MapLocation(mapWidth / 2, 0);
+//        corners[5] = new MapLocation(0, mapHeight / 2);
+//        corners[6] = new MapLocation(mapWidth / 2, mapHeight / 2);
+//        corners[7] = new MapLocation(mapWidth / 2, mapHeight / 2);
+//        corners[8] = new MapLocation(mapWidth - 1, mapHeight / 2);
+        myType = rc.getType();
+        
+        if(rc.readSharedArray(INDEX_GOODLOC_WORTH) == 0) {
+            for(int i=0;i<4;i++) {
+                rc.writeSharedArray(INDEX_GOOD_LOC + 0, locToInt(corners[i]));
+                rc.writeSharedArray(INDEX_GOODLOC_WORTH + i, 10);
+            }
+
+            for(int i = 0; i < NUM_GOOD_LOCS; i++) {
+                rc.writeSharedArray(INDEX_GOOD_LOC + i, 
+                        locToInt(randLoc()));
+                rc.writeSharedArray(INDEX_GOODLOC_WORTH + i, 1);
+            }
+        }
+    }
+    
+    public MapLocation randLoc() {
+        return new MapLocation(rng.nextInt(mapWidth), rng.nextInt(mapHeight));
     }
 
     MapLocation[] recentLocations=new MapLocation[10];
@@ -95,16 +128,7 @@ public abstract class Robot {
                     recentLocations[recentLocationsIndex] = rc.getLocation();
                     lastMoveTurn = rc.getRoundNum();
                 }
-                if(DEBUG) {
-                    MapLocation last = rc.getLocation();
-                    for(int i=recentLocationsIndex+9;i>recentLocationsIndex;i--) {
-                        if(recentLocations[i%10]!=null) {
-                            MapLocation next = recentLocations[i%10];
-                            rc.setIndicatorLine(last, next, 255, 0, 0);
-                            last=next;
-                        }
-                    }
-                }
+                updateInfo();
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
@@ -127,6 +151,15 @@ public abstract class Robot {
         Direction.WEST,
         Direction.NORTHWEST,
     };
+    
+    public void updateInfo() throws GameActionException {
+        if(Clock.getBytecodesLeft() < rc.getType().bytecodeLimit - 2000) // too few
+            return;
+        
+        updateEnemyHQs();
+        updateEnemySoliderLocations();
+        updateGoodLocs();
+    }
 
     public void moveInDirection(Direction d) throws GameActionException {
         Direction moveDir = bestMove(d);
@@ -153,7 +186,8 @@ public abstract class Robot {
         }
         return bestD;
     }
-    int frustration=10;
+
+    int frustration=0;
     MapLocation lastMoveTowardTarget;
     public void moveToward(MapLocation to) throws GameActionException {
         if(Robot.DEBUG) {
@@ -274,47 +308,43 @@ public abstract class Robot {
             }
         }
         MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9)%10];
-        Direction lastMoveDir = (recentLoc==null)?null:me.directionTo(recentLoc);
+        Direction lastMoveDir = (recentLoc==null || to!=lastMoveTowardTarget)?null:me.directionTo(recentLoc);
         lastMoveTowardTarget = to;
-        int dist = Math.max(dx, dy);
-        while(frustration < 200) {
+        while(frustration < 111) {
+            rc.setIndicatorString("frustration "+frustration+" "+ideal);
             Direction d = ideal;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration*3/2 - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                frustration = Math.max(10, frustration/2);
-                break;
+                frustration = 0;
+                return;
             }
             d = ok;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration*3/2 - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                frustration = onDiagonal? frustration*dist/(dist+1) : frustration * 2/3;
-                break;
+                frustration = onDiagonal?15:5;
+                return;
             }
             d = ok2;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration*3/2 - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                frustration = onDiagonal? frustration*dist/(dist+1) : frustration * 2/3;
-                break;
+                frustration = onDiagonal?15:5;
+                return;
             }
             d = mediocre;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                frustration += onEdge? frustration*dist/(dist+2) : frustration * 4/3;
-                break;
+                frustration += onEdge?20:15;
+                return;
             }
             d = mediocre2;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                frustration += onEdge? frustration*dist/(dist+2) : frustration * 4/3;
-                break;
+                frustration += 20;
+                return;
             }
             frustration += 10;
         }
-        if(!rc.isMovementReady())
-            frustration = Math.min(150, frustration);
-        else
-            frustration = 150;
-        rc.setIndicatorString("frustration "+frustration+" ideal "+ideal+" last "+lastMoveDir);
+        frustration = 100;
     }
     public void moveTowardOld(MapLocation l) throws GameActionException {
         if(Robot.DEBUG) {
@@ -386,7 +416,7 @@ public abstract class Robot {
         while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10) {
             wanderTarget = rng.nextDouble() < 0.5 ?
                     corners[rng.nextInt(4)] :
-                    new MapLocation(rng.nextInt(rc.getMapWidth()), rng.nextInt(rc.getMapHeight()));
+                    new MapLocation(rng.nextInt(mapWidth), rng.nextInt(mapHeight));
             lastWanderProgress = rc.getRoundNum();
         }
         MapLocation old = rc.getLocation();
@@ -413,9 +443,9 @@ public abstract class Robot {
         MapLocation[] possibleEnemyHQs = new MapLocation[12];
         for(int i=0;i<4 && rc.readSharedArray(i+Robot.INDEX_MY_HQ)>0;i++) {
             MapLocation l = intToLoc(rc.readSharedArray(i+Robot.INDEX_MY_HQ));
-            possibleEnemyHQs[i*3] = new MapLocation(rc.getMapWidth()-1-l.x,l.y);
-            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,rc.getMapHeight()-1-l.y);
-            possibleEnemyHQs[i*3+2] = new MapLocation(rc.getMapWidth()-1-l.x,rc.getMapHeight()-1-l.y);
+            possibleEnemyHQs[i*3] = new MapLocation(mapWidth-1-l.x,l.y);
+            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,mapHeight-1-l.y);
+            possibleEnemyHQs[i*3+2] = new MapLocation(mapWidth-1-l.x,mapHeight-1-l.y);
         }
         int totalWeight = 0;
         for(int i=0;i<12;i++) {
@@ -547,7 +577,7 @@ public abstract class Robot {
         int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
         int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
         int x3 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3);
-        int mh = rc.getMapHeight(), mw = rc.getMapWidth();
+        int mh = mapHeight, mw = mapWidth;
         MapLocation m;
         MapLocation best = null;
         int bestD = 9999;
@@ -618,80 +648,9 @@ public abstract class Robot {
 
         return best;
     }
-    void displayUnexploredChunks() throws GameActionException {
-        int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
-        int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
-        int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
-        int x3 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3);
-        int mh = rc.getMapHeight(), mw = rc.getMapWidth();
-        if((x0 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*3/16), 0, 0, 255);
-        if((x1 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*7/16), 0, 0, 255);
-        if((x2 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*11/16), 0, 0, 255);
-        if((x3 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*15/16), 0, 0, 255);
-    }
     void writeUnexploredChunk() throws GameActionException {
         MapLocation l = rc.getLocation();
-        int k = l.x*8/rc.getMapWidth() + (l.y*8/rc.getMapHeight())*8;
+        int k = l.x*8/mapWidth + (l.y*8/mapHeight)*8;
         //rc.setIndicatorString(""+k);
         int i=k/16, j = k%16;
         //rc.setIndicatorString(Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0))+" "+Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1))
@@ -704,6 +663,84 @@ public abstract class Robot {
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
+    }
+    
+    void updateGoodLocs() throws GameActionException {
+        MapLocation[] curLocs = new MapLocation[NUM_GOOD_LOCS];
+        int[] goodness = new int[NUM_GOOD_LOCS];
+        int worst = 0;
+        double comdx = 0, comdy = 0;
+        int mass = 0;
+        
+        for(int i = 0; i < NUM_GOOD_LOCS; i++) {
+            curLocs[i] = intToLoc(rc.readSharedArray(INDEX_GOOD_LOC + i));
+            goodness[i] = rc.readSharedArray(INDEX_GOODLOC_WORTH + i);
+            
+            if(goodness[i] < goodness[worst]) {
+                worst = i;
+            }
+        }
+        
+        MapLocation[] leads = rc.senseNearbyLocationsWithLead();
+        
+        for(MapLocation loc : leads) {
+            int amt = rc.senseLead(loc);
+            comdx = ((loc.x - myLoc.x) * amt + comdx * mass) / (amt + mass);
+            comdy = ((loc.y - myLoc.y) * amt + comdy * mass) / (amt + mass);
+            mass += amt;
+        }
+        
+        MapLocation com = myLoc.translate((int) comdx, (int) comdy);
+        double value = 0;
+        for(MapLocation loc : leads) {
+            value += 100 * rc.senseLead(loc) / (1 + sqrt(com.distanceSquaredTo(loc)));
+        }
+
+        if(goodness[worst] > value) { // even the worst old location is better
+            return;
+        }
+
+        int conflicts = 0;
+        int confi = 0;
+
+        for(int i = 0; i < NUM_GOOD_LOCS; i++) {
+            if(com.distanceSquaredTo(curLocs[i]) < 25) {
+                conflicts++;
+                confi = i;
+            }
+        }
+
+        if(conflicts >= 2) return; // better to keep more separate locations
+
+        int chosen = worst;
+        if(conflicts == 1) {
+            if(goodness[confi] < value) {
+                // new position better
+                chosen = confi;
+            }
+        }
+
+        rc.writeSharedArray(INDEX_GOOD_LOC + chosen, locToInt(com));
+        rc.writeSharedArray(INDEX_GOODLOC_WORTH + chosen, (int) value);
+
+        rc.setIndicatorDot(com, 0, 0, 0);
+    }
+
+    public MapLocation getNearestGoodLocation(MapLocation m) throws GameActionException {
+        MapLocation bestLoc = null;
+        double bestVal = 0;
+
+        for(int i = 0; i <= NUM_GOOD_LOCS; i++) {
+            MapLocation loc = intToLoc(rc.readSharedArray(INDEX_GOOD_LOC + i));
+            double value = rc.readSharedArray(INDEX_GOODLOC_WORTH + i) /
+                    sqrt(m.distanceSquaredTo(loc));
+            if(value > bestVal) {
+                bestVal = value;
+                bestLoc = loc;
+            }
+        }
+
+        return bestLoc;
     }
 
     public int computeStrength(RobotInfo[] robots) throws GameActionException {

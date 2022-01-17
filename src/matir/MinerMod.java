@@ -1,11 +1,11 @@
-package sprint;
+package matir;
 
 import battlecode.common.*;
 
-public class Miner extends Robot {
+public class MinerMod extends Robot {
     int recentlyMined = 0;
     MapLocation home;
-    Miner(RobotController r) throws GameActionException {
+    MinerMod(RobotController r) throws GameActionException {
         super(r);
         for(RobotInfo r1 : rc.senseNearbyRobots(2, rc.getTeam())) {
             if(r1.type == RobotType.ARCHON)
@@ -196,10 +196,10 @@ public class Miner extends Robot {
         }
     }
     private MapLocation determineTarget() throws GameActionException {
+        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9)
+            return target;
         RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
         RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
-        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9 && enemies.length==0)
-            return target;
         MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
         boolean[] ignorablePb = new boolean[pbLocs.length];
         for(int i=0;i<pbLocs.length;i++) {
@@ -265,10 +265,11 @@ public class Miner extends Robot {
         }
         //rc.setIndicatorString(m+"");
         rc.setIndicatorDot(m, 255, 0, 0);
-        MapLocation result = super.getNearestUnexploredChunk(m);
+        MapLocation result = rng.nextDouble() < 0.5 ?
+                getNearestUnexploredChunk(m) : getNearestGoodLocation(m);
         if(result==null) {
-            super.clearUnexploredChunks();
-            return super.getNearestUnexploredChunk(m);
+            clearUnexploredChunks();
+            return getNearestUnexploredChunk(m);
         }
         return result;
     }
@@ -359,6 +360,7 @@ public class Miner extends Robot {
                     //s += " -10";
                 }
             }
+
             /*
             boolean left = m.x < 10;
             boolean right = m.x + 10 > mapWidth;
