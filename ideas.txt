@@ -5,10 +5,9 @@ Macro:
 3) Soldiers should go towards contested lead depos instead of archons
 
 Miner micro:
-Miners should mine the last lead if it's under enemy control.
-Miners should retreat if attacked and no friendly soldiers around
+(1) Miners should mine the last lead if it's under enemy control.
+(2) Miners should retreat if attacked and no friendly soldiers around
 
 Soldier micro:
 (1) While holding, low HP soldiers should retreat and high HP soldiers should advance
-
-if 1v1 vs enemy soldier, always go on the offense unless on lowground
+(2) if 1v1 vs enemy soldier, always go on the offense unless on lowground

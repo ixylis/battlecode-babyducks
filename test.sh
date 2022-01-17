@@ -1,6 +1,6 @@
 #!/bin/bash
 #play teamA vs teamB a bunch of times
-rounds=4
+rounds=2
 grep "^teamA=" gradle.properties >> tmp
 grep "^teamB=" gradle.properties >> tmp
 source tmp
@@ -28,8 +28,8 @@ do
 done
 sed -i "s/teamA=.\+/teamA=$teamA/" gradle.properties
 sed -i "s/teamB=.\+/teamB=$teamB/" gradle.properties
-rm "src/__$teamA"
-rm "src/__$teamB"
+rm -r "src/__$teamA"
+rm -r "src/__$teamB"
 Awins=$(grep -c "__$teamA ([AB]) wins" log.log)
 Bwins=$(grep -c "__$teamB ([AB]) wins" log.log)
 games=$((Awins+Bwins))

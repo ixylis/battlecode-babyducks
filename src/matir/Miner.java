@@ -1,12 +1,7 @@
 package matir;
 
-import battlecode.common.Clock;
-import battlecode.common.Direction;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.RobotInfo;
-import battlecode.common.RobotType;
+import battlecode.common.*;
+import static battlecode.common.RobotType.*;
 
 public class Miner extends Robot {
     int recentlyMined = 0;
@@ -22,6 +17,8 @@ public class Miner extends Robot {
     }
     int lastSuitabilityRound = 0;
     MapLocation target;
+    RobotInfo[] friends;
+    RobotInfo[] enemies;
     public void turn() throws GameActionException {
         //boolean shouldDoSuitability = false;
         if(rc.isMovementReady() && (rc.getRoundNum() - lastSuitabilityRound < 10)) {
@@ -34,7 +31,19 @@ public class Miner extends Robot {
         //if(rc.getID() != 13202)
         //rc.setIndicatorString(Arrays.toString(suitability));
 
-        mine();
+        friends = rc.senseNearbyRobots(MINER.visionRadiusSquared, Us);
+        enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, Them);
+
+        int threshold = 1;
+//        int homeDist = myLoc.distanceSquaredTo(closest(myArchons()));
+//        MapLocation known = closest(enemyArchons());
+//        int enemyDist = known == null ? ((mapWidth^2 + mapHeight^2) / 4)
+//                : myLoc.distanceSquaredTo(known);
+        if(computeStrength(friends) < computeStrength(enemies))
+            threshold = 0;
+
+        mine(threshold);
+
         if(rc.getRoundNum()%2 != rc.readSharedArray(INDEX_LIVE_MINERS)%2) {
             rc.writeSharedArray(INDEX_LIVE_MINERS, 2+rc.getRoundNum()%2);
         } else {
@@ -287,8 +296,6 @@ public class Miner extends Robot {
             MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
             nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
         }
-        int mapWidth = rc.getMapWidth();
-        int mapHeight = rc.getMapHeight();
 
         MapLocation recentLoc = recentLocations[(recentLocationsIndex+6)%10];
         if(recentLoc ==null) recentLoc = rc.getLocation();
@@ -403,43 +410,43 @@ public class Miner extends Robot {
         }
 
     }
-    private void mine() throws GameActionException {
+    private void mine(int threshold) throws GameActionException {
         MapLocation l = rc.getLocation();
         MapLocation loc;
 
-        while(rc.isActionReady() && rc.senseLead(l)>1) {
+        while(rc.isActionReady() && rc.senseLead(l)>threshold) {
             rc.mineLead(l);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 0)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 0)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, -1)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, -1)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, 1)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, 1)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 0)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 0)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, -1)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, -1)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 1)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 1)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, -1)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, -1)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }
-        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 1)) && rc.senseLead(loc)>1) {
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 1)) && rc.senseLead(loc)>threshold) {
             rc.mineLead(loc);
             recentlyMined++;
         }

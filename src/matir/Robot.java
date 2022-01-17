@@ -2,6 +2,8 @@ package matir;
 
 import battlecode.common.*;
 
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Random;
 
 import static battlecode.common.RobotType.SOLDIER;
@@ -32,6 +34,7 @@ public abstract class Robot {
     MapLocation myLoc;
     MapLocation[] corners;
     RobotType myType;
+    Team Us, Them;
 
     abstract static class Weightage {abstract double weight(Direction d);}
 
@@ -82,7 +85,7 @@ public abstract class Robot {
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
         rc = r;
-        rng = new Random(SEED);
+        rng = new Random(rc.getID() + SEED);
         mapWidth = rc.getMapWidth();
         mapHeight = rc.getMapHeight();
         corners = new MapLocation[4];
@@ -96,7 +99,9 @@ public abstract class Robot {
 //        corners[7] = new MapLocation(mapWidth / 2, mapHeight / 2);
 //        corners[8] = new MapLocation(mapWidth - 1, mapHeight / 2);
         myType = rc.getType();
-        
+        Us = rc.getTeam();
+        Them = Us.opponent();
+
         if(rc.readSharedArray(INDEX_GOODLOC_WORTH) == 0) {
             for(int i=0;i<4;i++) {
                 rc.writeSharedArray(INDEX_GOOD_LOC + 0, locToInt(corners[i]));
@@ -653,6 +658,8 @@ public abstract class Robot {
         int k = l.x*8/mapWidth + (l.y*8/mapHeight)*8;
         //rc.setIndicatorString(""+k);
         int i=k/16, j = k%16;
+        if(((l.x-mapWidth*((1+2*i)/16))^2 + (l.y-mapWidth*((1+2*j)/8))^2) > 34)
+            return;
         //rc.setIndicatorString(Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0))+" "+Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1))
         //+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2)+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3)+" "+i+" "+j);
         if((rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) & (1<<j)) == 0)
@@ -753,4 +760,45 @@ public abstract class Robot {
 
         return strength;
     }
+
+    MapLocation closest(MapLocation[] locs) {
+        return closest(myLoc, locs);
+    }
+
+    MapLocation closest(MapLocation from, MapLocation[] locs) {
+        if(locs == null) return null;
+        int mindist = 100000;
+        MapLocation best = null;
+
+        for(MapLocation loc : locs) {
+            if(from.distanceSquaredTo(loc) < mindist) {
+                mindist = from.distanceSquaredTo(loc);
+                best = loc;
+            }
+        }
+
+        return best;
+    }
+
+    MapLocation[] myArchons() throws GameActionException {
+        int i;
+        for(i=INDEX_MY_HQ; rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
+        MapLocation[] archons = new MapLocation[i];
+        for(int j=INDEX_MY_HQ; j<i; j++) archons[j] =
+                intToLoc(rc.readSharedArray(j));
+
+        return archons;
+    }
+
+    MapLocation[] enemyArchons() throws GameActionException {
+        int i;
+        for(i=INDEX_ENEMY_HQ; rc.readSharedArray(i)>0 && i<INDEX_ENEMY_HQ+4; i++);
+        if(i==INDEX_ENEMY_HQ) return null;
+        MapLocation[] archons = new MapLocation[i-INDEX_ENEMY_HQ];
+        for(int j=INDEX_ENEMY_HQ; j<i; j++) archons[j-INDEX_ENEMY_HQ] =
+                intToLoc(rc.readSharedArray(j));
+
+        return archons;
+    }
+
 }
