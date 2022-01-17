@@ -150,7 +150,7 @@ public abstract class Robot {
     int frustration=0;
     MapLocation lastMoveTowardTarget;
     public void moveToward(MapLocation to) throws GameActionException {
-        if(sprint.Robot.DEBUG) {
+        if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
         }
@@ -307,7 +307,7 @@ public abstract class Robot {
         frustration = 100;
     }
     public void moveTowardOld(MapLocation l) throws GameActionException {
-        if(sprint.Robot.DEBUG) {
+        if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
         }
@@ -619,10 +619,10 @@ public abstract class Robot {
             rc.writeSharedArray(INDEX_EXPLORED_CHUNKS+i, rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) | (1<<j));
     }
     void clearUnexploredChunks() throws GameActionException {
-        rc.writeSharedArray(sprint.Robot.INDEX_EXPLORED_CHUNKS+0, 0);
-        rc.writeSharedArray(sprint.Robot.INDEX_EXPLORED_CHUNKS+1, 0);
-        rc.writeSharedArray(sprint.Robot.INDEX_EXPLORED_CHUNKS+2, 0);
-        rc.writeSharedArray(sprint.Robot.INDEX_EXPLORED_CHUNKS+3, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+0, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
     }
 
     public int computeStrength(RobotInfo[] robots) throws GameActionException {

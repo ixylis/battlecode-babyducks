@@ -87,7 +87,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         if(DEBUG) {
-            MapLocation enemyLoc = sprint.Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% sprint.Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
@@ -137,7 +137,7 @@ public class Archon extends Robot {
         }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
-        rc.writeSharedArray(myHQIndex + sprint.Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
+        rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
         if(rc.getRoundNum()%160==0) {
             super.clearUnexploredChunks();
