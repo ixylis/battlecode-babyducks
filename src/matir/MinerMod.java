@@ -1,11 +1,11 @@
-package sprint;
+package matir;
 
 import battlecode.common.*;
 
-public class Miner extends Robot {
+public class MinerMod extends Robot {
     int recentlyMined = 0;
     MapLocation home;
-    Miner(RobotController r) throws GameActionException {
+    MinerMod(RobotController r) throws GameActionException {
         super(r);
         for(RobotInfo r1 : rc.senseNearbyRobots(2, rc.getTeam())) {
             if(r1.type == RobotType.ARCHON)
@@ -265,10 +265,11 @@ public class Miner extends Robot {
         }
         //rc.setIndicatorString(m+"");
         rc.setIndicatorDot(m, 255, 0, 0);
-        MapLocation result = super.getNearestUnexploredChunk(m);
+        MapLocation result = rng.nextDouble() < 0.5 ?
+                getNearestUnexploredChunk(m) : getNearestGoodLocation(m);
         if(result==null) {
-            super.clearUnexploredChunks();
-            return super.getNearestUnexploredChunk(m);
+            clearUnexploredChunks();
+            return getNearestUnexploredChunk(m);
         }
         return result;
     }
@@ -359,6 +360,7 @@ public class Miner extends Robot {
                     //s += " -10";
                 }
             }
+
             /*
             boolean left = m.x < 10;
             boolean right = m.x + 10 > mapWidth;

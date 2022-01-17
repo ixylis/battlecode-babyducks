@@ -1,9 +1,11 @@
-package sprint;
+package anthony;
+
+import battlecode.common.*;
 
 import java.util.Random;
 
-import static battlecode.common.RobotType.*;
-import battlecode.common.*;
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
 import static java.lang.Math.sqrt;
 
 public abstract class Robot {

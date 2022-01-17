@@ -1,7 +1,9 @@
-package sprint;
+package anthony;
 
-import static battlecode.common.RobotType.*;
 import battlecode.common.*;
+
+import static battlecode.common.RobotType.SOLDIER;
+import static battlecode.common.RobotType.WATCHTOWER;
 
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {

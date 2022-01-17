@@ -1,9 +1,10 @@
-package sprint;
+package matir;
+
+import battlecode.common.*;
 
 import java.util.ArrayList;
 
-import battlecode.common.*;
-import static battlecode.common.GameConstants.*;
+import static battlecode.common.GameConstants.GAME_MAX_NUMBER_OF_ROUNDS;
 import static battlecode.common.RobotType.*;
 import static java.lang.Math.max;
 import static java.lang.Math.sqrt;
@@ -30,7 +31,7 @@ public class Archon extends Robot {
         for(i=INDEX_MY_HQ;rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
         if(i<INDEX_MY_HQ+4) {
             myHQIndex = i;
-            rc.writeSharedArray(i, anthony.Robot.locToInt(rc.getLocation()));
+            rc.writeSharedArray(i, Robot.locToInt(rc.getLocation()));
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
@@ -86,7 +87,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         if(DEBUG) {
-            MapLocation enemyLoc = anthony.Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% anthony.Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
@@ -105,11 +106,10 @@ public class Archon extends Robot {
             if(((x&0xfff)<<4) < totalSpent - 100)
                 myTurn = false;
         }
-        // if we're under attack, override this and always build
         boolean underAttack = false;
         if (rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam().opponent()).length > 0) {
-          myTurn = true;
-          underAttack = true;
+            myTurn = true;
+            underAttack = true;
         }
         if(myTurn) {
             int max_miners;
@@ -124,15 +124,8 @@ public class Archon extends Robot {
                 if(buildMiner())
                     miners++;
             } else {
-                buildInDirection(RobotType.SOLDIER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2)));
+                buildInDirection(RobotType.SOLDIER, rc.getLocation().directionTo(new MapLocation(mapWidth/2, mapHeight/2)));
             }
-        }
-        // heal nearby units if we haven't done anything else
-        if (rc.getActionCooldownTurns() == 0) {
-          for (RobotInfo robot : rc.senseNearbyRobots(RobotType.ARCHON.actionRadiusSquared, rc.getTeam())) {
-            if (robot.health < robot.type.health && rc.canRepair(robot.location))
-              rc.repair(robot.location);
-          }
         }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
@@ -141,12 +134,37 @@ public class Archon extends Robot {
         if(rc.getRoundNum()%160==0) {
             super.clearUnexploredChunks();
         }
+
+        repair();
+    }
+
+    private void repair() throws GameActionException {
+        if(rc.isActionReady()) {
+            RobotInfo best = rc.senseRobot(rc.getID());
+            for(RobotInfo r : rc.senseNearbyRobots(ARCHON.visionRadiusSquared, rc.getTeam())) {
+                if(r.mode == RobotMode.DROID) {
+                    if(best.mode != RobotMode.DROID) {
+                        best = r;
+                    } else {
+                        if(r.type == SOLDIER && best.type != SOLDIER) {
+                            best = r;
+                        } else if(r.health < best.health) {
+                            best = r;
+                        }
+                    }
+                }
+            }
+
+            if(rc.canRepair(best.location)) {
+                rc.repair(best.location);
+            }
+        }
     }
 
     //build a miner toward the nearest deposit
     private boolean buildMiner() throws GameActionException {
         MapLocation[] locs = rc.senseNearbyLocationsWithLead(ARCHON.visionRadiusSquared,5);
-        if(locs.length == 0 || rc.senseLead(myLoc) >= 5)
+        if(locs.length == 0)
             return build(MINER);
         MapLocation closest = locs[0];
         for(MapLocation l : locs) {
@@ -154,11 +172,34 @@ public class Archon extends Robot {
                 closest = l;
         }
 
-        return buildInDirection(MINER, rc.getLocation().directionTo(closest));
+        return buildTowards(MINER, closest);
     }
+
+    private boolean buildSoldier() throws GameActionException {
+//        MapLocation target = getNearestEnemyChunk();
+////        MapLocation target = getRandomKnownEnemyHQ();
+////        if(target == null) target = getRandomPossibleEnemyHQ();
+////        return buildTowards(SOLDIER, target);
+////        building towards archons is actually terrible!
+//        if(target != null)
+//            return buildTowards(SOLDIER, target);
+
+        return build(SOLDIER);
+    }
+
+    private boolean buildTowards(RobotType t, MapLocation target) throws GameActionException {
+        if(target.equals(myLoc))
+            return build(t);
+        else
+            return buildInDirection(t, myLoc.directionTo(target));
+    }
+
     private boolean buildInDirection(RobotType t, Direction d) throws GameActionException {
         if(rc.getTeamLeadAmount(rc.getTeam()) < t.buildCostLead)
             return false;
+
+        if(d == Direction.CENTER) return build(t);
+
         Direction[] dirs = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight(),
                 d.rotateLeft().rotateLeft().rotateLeft(), d.rotateRight().rotateRight().rotateRight(), d.opposite()};
         double[] suitability = {1,.5,.5,.3,.3,.2,.2,.1};
