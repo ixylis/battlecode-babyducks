@@ -23,6 +23,7 @@ public class Miner extends Robot {
     int lastSuitabilityRound = 0;
     MapLocation target;
     public void turn() throws GameActionException {
+        if (mine()) return;
         //boolean shouldDoSuitability = false;
         if(rc.isMovementReady() && (rc.getRoundNum() - lastSuitabilityRound < 10)) {
             movement();
@@ -403,9 +404,55 @@ public class Miner extends Robot {
         }
 
     }
-    private void mine() throws GameActionException {
+    private boolean mine() throws GameActionException {
         MapLocation l = rc.getLocation();
         MapLocation loc;
+        boolean minedGold = false;
+        while(rc.isActionReady() && rc.senseGold(l)>0) {
+            rc.mineGold(l);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 0)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, -1)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(0, 1)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 0)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, -1)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(-1, 1)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, -1)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
+        while(rc.isActionReady() && rc.canSenseLocation(loc=l.translate(1, 1)) && rc.senseGold(loc)>0) {
+            rc.mineGold(loc);
+            recentlyMined++;
+            minedGold = true;
+        }
 
         while(rc.isActionReady() && rc.senseLead(l)>1) {
             rc.mineLead(l);
@@ -443,5 +490,6 @@ public class Miner extends Robot {
             rc.mineLead(loc);
             recentlyMined++;
         }
+        return minedGold;
     }
 }
