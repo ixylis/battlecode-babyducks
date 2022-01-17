@@ -50,6 +50,12 @@ public class Archon extends Robot {
     }
 
     public void turn() throws GameActionException {
+        if (rc.getArchonCount() > 1 && rc.senseNearbyRobots(2, rc.getTeam()).length > 0 && rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam()).length > 1) {
+            for (RobotInfo robot : rc.senseNearbyRobots(2, rc.getTeam()))
+                if (robot.type == RobotType.MINER) rc.disintegrate();
+        }
+        if (rc.getTeamGoldAmount(rc.getTeam()) >= 20 && rc.getArchonCount() == 1) 
+            buildInDirection(RobotType.SAGE, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2)));
         //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
 
         if(anomalyIndex < anomalies.length) {
@@ -142,6 +148,17 @@ public class Archon extends Robot {
         if(rc.getRoundNum()%160==0) {
             super.clearUnexploredChunks();
         }
+        super.displayUnexploredChunks();
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+0)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+1)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+2)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+3)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+4)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+5)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+6)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+7)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+8)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION+9)), 1, 255, 1);
     }
 
     //build a miner toward the nearest deposit
