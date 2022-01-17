@@ -9,6 +9,7 @@ import static battlecode.common.RobotType.WATCHTOWER;
 import static java.lang.Math.sqrt;
 
 public abstract class Robot {
+    public static final int SEED=0;
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS=8;
@@ -71,7 +72,7 @@ public abstract class Robot {
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
         rc = r;
-        rng = new Random(rc.getID());
+        rng = new Random(SEED + rc.getID());
         corners = new MapLocation[4];
         corners[0] = new MapLocation(0, 0);
         corners[1] = new MapLocation(rc.getMapWidth() - 1, 0);

@@ -1,6 +1,7 @@
 package sprint;
 
 import battlecode.common.*;
+
 import static java.lang.Math.*;
 
 public class Watchtower extends Robot {
