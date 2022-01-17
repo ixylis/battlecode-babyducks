@@ -219,59 +219,6 @@ public class Soldier extends Robot {
         if(micro())
             return;
 
-        /*old micro
-        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
-        boolean existsSoldier=false;
-        int enemySoldierCount=0;
-        int friendlySoldierCount=0;
-        int adjacentFriendlySoldierCount = 0;
-        MapLocation away=rc.getLocation();
-        MapLocation nearbyFriend = null;
-        for(RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam())) {
-            if(r.type == RobotType.SOLDIER) {
-                nearbyFriend = r.location;
-                friendlySoldierCount++;
-                if(r.location.distanceSquaredTo(rc.getLocation())<3)
-                    adjacentFriendlySoldierCount++;
-            }
-        }
-        if(enemies.length>0) {
-            for(RobotInfo r : enemies) {
-                if(r.type == RobotType.SOLDIER) {
-                    //find the lowest rubble tile you can move onto.
-                    existsSoldier = true;
-                    enemySoldierCount++;
-                    away=away.translate(rc.getLocation().x-r.location.x, rc.getLocation().y-r.location.y);
-                }
-            }
-            if(enemySoldierCount>friendlySoldierCount) {
-                moveToward(away);
-                return;
-            }
-            if(enemySoldierCount+1<adjacentFriendlySoldierCount) {
-                moveToward(enemies[0].location);
-                return;
-            }
-            if(existsSoldier && rc.isMovementReady()) {
-                int minRubble = rc.senseRubble(rc.getLocation());
-                Direction minRubbleDir = Direction.CENTER;
-                for(Direction d : Robot.directions) {
-                    int rubble = rc.senseRubble(rc.getLocation().add(d));
-                    if(rubble < minRubble && rc.canMove(d)) {
-                        minRubble = rubble;
-                        minRubbleDir = d;
-                    }
-                }
-                if(minRubbleDir != Direction.CENTER) {
-                    rc.move(minRubbleDir);
-                    return;
-                }
-            }
-            if(!existsSoldier) {
-                moveToward(enemies[0].location);
-                return;
-            }
-        } else { */
             if(movementTarget!=null && rc.canSenseLocation(movementTarget))
                 movementTarget=null;
             MapLocation x = super.getNearestEnemyChunk();
@@ -281,12 +228,6 @@ public class Soldier extends Robot {
             if(movementTarget==null)
                 movementTarget = super.getRandomPossibleEnemyHQ();
             moveToward(movementTarget);
-            /*
-            if(rc.getLocation().distanceSquaredTo(movementTarget)>64 || adjacentFriendlySoldierCount>0)
-                moveToward(movementTarget);
-            else {
-                moveToward(nearbyFriend);
-            }*/
     }
     public void attack() throws GameActionException {
         int radius = rc.getType().actionRadiusSquared;

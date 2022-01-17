@@ -125,7 +125,7 @@ public class Archon extends Robot {
                 if(buildMiner())
                     miners++;
             } else {
-                build(RobotType.SOLDIER);
+                buildInDirection(RobotType.SOLDIER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2)));
             }
         }
         // heal nearby units if we haven't done anything else
