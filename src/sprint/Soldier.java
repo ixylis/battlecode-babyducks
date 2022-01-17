@@ -55,6 +55,8 @@ public class Soldier extends Robot {
         else
             return d.rotateRight();
     }
+    RobotInfo[] recentEnemies = new RobotInfo[10];
+    int[] recentEnemiesRounds = new int[10];
     private boolean micro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());

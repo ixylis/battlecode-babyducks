@@ -1,10 +1,10 @@
 #!/bin/bash
 #play teamA vs teamB a bunch of times
 rounds=4
-grep "^teamA=" gradle.properties >> tmp
-grep "^teamB=" gradle.properties >> tmp
-source tmp
-rm tmp
+grep "^teamA=" gradle.properties >> tmp1
+grep "^teamB=" gradle.properties >> tmp1
+source tmp1
+rm tmp1
 rm log.log
 ./copypackage.sh "$teamA" "__$teamA"
 ./copypackage.sh "$teamB" "__$teamB"
