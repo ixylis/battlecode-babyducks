@@ -30,7 +30,7 @@ public class Archon extends Robot {
         for(i=INDEX_MY_HQ;rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
         if(i<INDEX_MY_HQ+4) {
             myHQIndex = i;
-            rc.writeSharedArray(i, anthony.Robot.locToInt(rc.getLocation()));
+            rc.writeSharedArray(i, Robot.locToInt(rc.getLocation()));
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
@@ -86,7 +86,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         if(DEBUG) {
-            MapLocation enemyLoc = anthony.Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% anthony.Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
