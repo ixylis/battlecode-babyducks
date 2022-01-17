@@ -1,9 +1,10 @@
 package sprint;
 
+import battlecode.common.*;
+
 import java.util.ArrayList;
 
-import battlecode.common.*;
-import static battlecode.common.GameConstants.*;
+import static battlecode.common.GameConstants.GAME_MAX_NUMBER_OF_ROUNDS;
 import static battlecode.common.RobotType.*;
 import static java.lang.Math.max;
 import static java.lang.Math.sqrt;
