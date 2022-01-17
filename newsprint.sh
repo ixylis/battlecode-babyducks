@@ -8,10 +8,10 @@ sed -i "s/teamB=.\+/teamB=sprint/" gradle.properties
 sed -i "s/rounds=.\+/rounds=4/" test.sh
 echo "Running tests"
 ./test.sh
-grep "^Apercent" log.log >> tmp
+grep "^Apercent=" log.log >> tmp
 source tmp
 rm tmp
-echo "Winrate = $Apercent"
+echo "Winrate = $Apercent%"
 if [ $Apercent -gt $threshold ]
 then
   echo "Above threshold; updating"

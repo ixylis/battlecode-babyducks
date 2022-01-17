@@ -1,0 +1,14 @@
+Macro:
+1) (a) Store lead locs globally.
+   (b) Route miners towards deposits.
+2) Soldiers should explore instead of miners, miners should just mine.
+3) Soldiers should go towards contested lead depos instead of archons
+
+Miner micro:
+Miners should mine the last lead if it's under enemy control.
+Miners should retreat if attacked and no friendly soldiers around
+
+Soldier micro:
+(1) While holding, low HP soldiers should retreat and high HP soldiers should advance
+
+if 1v1 vs enemy soldier, always go on the offense unless on lowground
