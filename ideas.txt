@@ -4,7 +4,7 @@ Macro:
 2) Soldiers should explore instead of miners, miners should just mine.
 3) Soldiers should go towards contested lead depos instead of archons
 
-Miner micro:
+Miner micro: DONE
 (1) Miners should mine the last lead if it's under enemy control.
 (2) Miners should retreat if attacked and no friendly soldiers around
 

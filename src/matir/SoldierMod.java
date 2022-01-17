@@ -20,7 +20,7 @@ public class SoldierMod extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
 
     }
     /*
@@ -274,7 +274,7 @@ public class SoldierMod extends Robot {
         } else { */
         if(movementTarget!=null && rc.canSenseLocation(movementTarget))
             movementTarget=null;
-        MapLocation x = super.getNearestEnemyChunk();
+        MapLocation x = super.getNearestEnemySoldierChunk();
         if(x!=null) movementTarget=x;
         if(x == null && getRandomKnownEnemyHQ() != null)
             movementTarget = getRandomPossibleEnemyHQ();

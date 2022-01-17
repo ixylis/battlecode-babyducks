@@ -87,7 +87,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME)/2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
         if(DEBUG) {
-            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION +rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
         //determine if it's my turn to build
@@ -120,15 +120,19 @@ public class Archon extends Robot {
                 case 4: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+4; break;
                 default: max_miners=0;
             }
-            if(!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (max_miners > liveMiners || income>liveMiners*100 || rc.getRoundNum()<20)) {
+            if(!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 1000 &&
+                    (max_miners > liveMiners || income>liveMiners*100)) {
                 if(buildMiner())
                     miners++;
             } else {
-                buildInDirection(RobotType.SOLDIER, rc.getLocation().directionTo(new MapLocation(mapWidth/2, mapHeight/2)));
+                buildInDirection(RobotType.SOLDIER,
+                        rc.getLocation().directionTo(new MapLocation(mapWidth/2, mapHeight/2)));
             }
         }
-        super.removeOldEnemySoldierLocations();
-        super.updateEnemySoliderLocations();
+        removeOldEnemySoldierLocations();
+        removeOldEnemyMinerLocations();
+        updateEnemySoliderLocations();
+        updateEnemyMinerLocations();
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
         if(rc.getRoundNum()%160==0) {
@@ -176,7 +180,7 @@ public class Archon extends Robot {
     }
 
     private boolean buildSoldier() throws GameActionException {
-//        MapLocation target = getNearestEnemyChunk();
+//        MapLocation target = getNearestEnemySoldierChunk();
 ////        MapLocation target = getRandomKnownEnemyHQ();
 ////        if(target == null) target = getRandomPossibleEnemyHQ();
 ////        return buildTowards(SOLDIER, target);

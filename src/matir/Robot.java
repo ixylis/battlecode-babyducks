@@ -2,35 +2,34 @@ package matir;
 
 import battlecode.common.*;
 
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Random;
 
-import static battlecode.common.RobotType.SOLDIER;
-import static battlecode.common.RobotType.WATCHTOWER;
+import static battlecode.common.RobotType.*;
 import static java.lang.Math.sqrt;
 
 public abstract class Robot {
     // for bash testing: DO NOT ADD WHITESPACE
-    public static final int SEED=27875;
+    public static final int SEED=259;
 
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS=8;
     public static final int INDEX_INCOME=9;
-    public static final int INDEX_ENEMY_LOCATION=10;//10 ints for recent enemy soldier locations
+    public static final int INDEX_ENEMY_SOLDIER_LOCATION=10;//10 ints for recent enemy soldier locations
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
-    public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
-    public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
-    public static final int NUM_GOOD_LOCS = 18; // this should be reduced if more ints are needed
-    public static final int INDEX_GOOD_LOC = 28; // n approximate "good" (aka lead heavy) locations)
+    public static final int INDEX_ENEMY_MINER_LOCATION=INDEX_ENEMY_SOLDIER_LOCATION + NUM_ENEMY_SOLDIER_CHUNKS;
+    public static final int NUM_ENEMY_MINER_CHUNKS = 10;
+    public static final int INDEX_HQ_SPENDING=INDEX_ENEMY_MINER_LOCATION + NUM_ENEMY_MINER_CHUNKS; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    public static final int INDEX_EXPLORED_CHUNKS=INDEX_HQ_SPENDING+1; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
+    public static final int NUM_GOOD_LOCS = 1; // this should be reduced if more ints are needed
+    public static final int INDEX_GOOD_LOC = INDEX_EXPLORED_CHUNKS+4; // n approximate "good" (aka lead heavy) locations)
     public static final int INDEX_GOODLOC_WORTH = INDEX_GOOD_LOC + NUM_GOOD_LOCS; // measures of their "goodness"
 
     public static final double HEALTH_FACTOR = 0.2;
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
-    
+
     int mapWidth;
-    int mapHeight;    
+    int mapHeight;
     MapLocation myLoc;
     MapLocation[] corners;
     RobotType myType;
@@ -79,7 +78,7 @@ public abstract class Robot {
      * but only put distinct entries if they are more than 4 tiles apart.
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
-    
+
     public static final boolean DEBUG = true;
     public final Random rng;
     RobotController rc;
@@ -109,13 +108,13 @@ public abstract class Robot {
             }
 
             for(int i = 0; i < NUM_GOOD_LOCS; i++) {
-                rc.writeSharedArray(INDEX_GOOD_LOC + i, 
+                rc.writeSharedArray(INDEX_GOOD_LOC + i,
                         locToInt(randLoc()));
                 rc.writeSharedArray(INDEX_GOODLOC_WORTH + i, 1);
             }
         }
     }
-    
+
     public MapLocation randLoc() {
         return new MapLocation(rng.nextInt(mapWidth), rng.nextInt(mapHeight));
     }
@@ -144,7 +143,7 @@ public abstract class Robot {
         }
     }
     public abstract void turn() throws GameActionException;
-    
+
     /** Array containing all the possible movement directions. */
     static final Direction[] directions = {
         Direction.NORTH,
@@ -156,13 +155,14 @@ public abstract class Robot {
         Direction.WEST,
         Direction.NORTHWEST,
     };
-    
+
     public void updateInfo() throws GameActionException {
         if(Clock.getBytecodesLeft() < rc.getType().bytecodeLimit - 2000) // too few
             return;
-        
+
         updateEnemyHQs();
         updateEnemySoliderLocations();
+        updateEnemyMinerLocations();
         updateGoodLocs();
     }
 
@@ -525,7 +525,7 @@ public abstract class Robot {
         }
     }
     void removeOldEnemySoldierLocations() throws GameActionException {
-        for(int i=INDEX_ENEMY_LOCATION;i<INDEX_ENEMY_LOCATION+NUM_ENEMY_SOLDIER_CHUNKS;i++) {
+        for(int i = INDEX_ENEMY_SOLDIER_LOCATION; i< INDEX_ENEMY_SOLDIER_LOCATION +NUM_ENEMY_SOLDIER_CHUNKS; i++) {
             int x = rc.readSharedArray(i);
             if((x&0xff)==0xff) continue;
             if(((0x40+(rc.getRoundNum()&0x3f) - (x>>8))&0x3f) > 8 || rc.getRoundNum()<2)
@@ -535,15 +535,15 @@ public abstract class Robot {
     void updateEnemySoliderLocations() throws GameActionException {
         //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_SOLDIER_CHUNKS];
         int[] enemySoldierChunks = new int[NUM_ENEMY_SOLDIER_CHUNKS];
-        
+
         for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
-            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+i));
-            int x = rc.readSharedArray(INDEX_ENEMY_LOCATION+i);
+            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION+i));
+            int x = rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION +i);
             enemySoldierChunks[i] = x&0xff;
-            
+
         }
         for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
-            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER || r.type == RobotType.MINER) {
+            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER) {
                 int x = Robot.chunkToInt(r.location);
                 boolean found=false;
                 for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
@@ -555,19 +555,72 @@ public abstract class Robot {
                 if(!found) {
                     for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
                         if(enemySoldierChunks[i] == 0xff) {//0xff is the empty slot code
-                            rc.writeSharedArray(i+Robot.INDEX_ENEMY_LOCATION, x | ((rc.getRoundNum()&0x3f)<<8));
+                            rc.writeSharedArray(i+Robot.INDEX_ENEMY_SOLDIER_LOCATION, x | ((rc.getRoundNum()&0x3f)<<8));
                             return;
                         }
                     }
-                    
+
                 }
             }
         }
     }
-    MapLocation getNearestEnemyChunk() throws GameActionException {
+    MapLocation getNearestEnemySoldierChunk() throws GameActionException {
         MapLocation nearest = null;
         for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
-            int x1 = rc.readSharedArray(INDEX_ENEMY_LOCATION+i);
+            int x1 = rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION +i);
+            if(x1==0xff) continue;
+            MapLocation x = Robot.intToChunk(x1);
+            if(nearest==null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
+                nearest = x;
+            }
+        }
+        return nearest;
+    }
+
+    void removeOldEnemyMinerLocations() throws GameActionException {
+        for(int i = INDEX_ENEMY_MINER_LOCATION; i< INDEX_ENEMY_MINER_LOCATION +NUM_ENEMY_MINER_CHUNKS; i++) {
+            int x = rc.readSharedArray(i);
+            if((x&0xff)==0xff) continue;
+            if(((0x40+(rc.getRoundNum()&0x3f) - (x>>8))&0x3f) > 8 || rc.getRoundNum()<2)
+                rc.writeSharedArray(i, 0xff);
+        }
+    }
+    void updateEnemyMinerLocations() throws GameActionException {
+        //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_MINER_CHUNKS];
+        int[] enemyMinerChunks = new int[NUM_ENEMY_MINER_CHUNKS];
+
+        for(int i=0;i<NUM_ENEMY_MINER_CHUNKS;i++) {
+            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION+i));
+            int x = rc.readSharedArray(INDEX_ENEMY_MINER_LOCATION +i);
+            enemyMinerChunks[i] = x&0xff;
+
+        }
+        for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
+            if(r.type == MINER) {
+                int x = Robot.chunkToInt(r.location);
+                boolean found=false;
+                for(int i=0;i<NUM_ENEMY_MINER_CHUNKS;i++) {
+                    if(enemyMinerChunks[i] == x) {
+                        found=true;
+                        break;
+                    }
+                }
+                if(!found) {
+                    for(int i=0;i<NUM_ENEMY_MINER_CHUNKS;i++) {
+                        if(enemyMinerChunks[i] == 0xff) {//0xff is the empty slot code
+                            rc.writeSharedArray(i+Robot.INDEX_ENEMY_MINER_LOCATION, x | ((rc.getRoundNum()&0x3f)<<8));
+                            return;
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+    MapLocation getNearestEnemyMinerChunk() throws GameActionException {
+        MapLocation nearest = null;
+        for(int i=0;i<NUM_ENEMY_MINER_CHUNKS;i++) {
+            int x1 = rc.readSharedArray(INDEX_ENEMY_MINER_LOCATION +i);
             if(x1==0xff) continue;
             MapLocation x = Robot.intToChunk(x1);
             if(nearest==null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
@@ -658,8 +711,6 @@ public abstract class Robot {
         int k = l.x*8/mapWidth + (l.y*8/mapHeight)*8;
         //rc.setIndicatorString(""+k);
         int i=k/16, j = k%16;
-        if(((l.x-mapWidth*((1+2*i)/16))^2 + (l.y-mapWidth*((1+2*j)/8))^2) > 34)
-            return;
         //rc.setIndicatorString(Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0))+" "+Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1))
         //+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2)+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3)+" "+i+" "+j);
         if((rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) & (1<<j)) == 0)
@@ -671,32 +722,39 @@ public abstract class Robot {
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
     }
-    
+
     void updateGoodLocs() throws GameActionException {
+        if(myType == MINER) return;
+        RobotInfo[] nearby = rc.senseNearbyRobots(myType.visionRadiusSquared, Us);
+        for(RobotInfo rb : nearby) {
+            if(rb.type == MINER)
+                return;
+        }
+
         MapLocation[] curLocs = new MapLocation[NUM_GOOD_LOCS];
         int[] goodness = new int[NUM_GOOD_LOCS];
         int worst = 0;
         double comdx = 0, comdy = 0;
         int mass = 0;
-        
+
         for(int i = 0; i < NUM_GOOD_LOCS; i++) {
             curLocs[i] = intToLoc(rc.readSharedArray(INDEX_GOOD_LOC + i));
             goodness[i] = rc.readSharedArray(INDEX_GOODLOC_WORTH + i);
-            
+
             if(goodness[i] < goodness[worst]) {
                 worst = i;
             }
         }
-        
+
         MapLocation[] leads = rc.senseNearbyLocationsWithLead();
-        
+
         for(MapLocation loc : leads) {
             int amt = rc.senseLead(loc);
             comdx = ((loc.x - myLoc.x) * amt + comdx * mass) / (amt + mass);
             comdy = ((loc.y - myLoc.y) * amt + comdy * mass) / (amt + mass);
             mass += amt;
         }
-        
+
         MapLocation com = myLoc.translate((int) comdx, (int) comdy);
         double value = 0;
         for(MapLocation loc : leads) {
@@ -733,20 +791,36 @@ public abstract class Robot {
         rc.setIndicatorDot(com, 0, 0, 0);
     }
 
+    public void makeLocBad() throws GameActionException {
+        for(int i=0;i<=NUM_GOOD_LOCS;i++) {
+            if(myLoc.distanceSquaredTo(intToLoc(
+                    rc.readSharedArray(INDEX_GOOD_LOC+i))) <= 50) {
+                rc.writeSharedArray(INDEX_GOODLOC_WORTH+i, 0);
+            }
+        }
+    }
+
+    int goodLocWorth = 0, goodLoci = 0;
     public MapLocation getNearestGoodLocation(MapLocation m) throws GameActionException {
         MapLocation bestLoc = null;
         double bestVal = 0;
+        int bestWorth = 0, besti = 0;
 
         for(int i = 0; i <= NUM_GOOD_LOCS; i++) {
             MapLocation loc = intToLoc(rc.readSharedArray(INDEX_GOOD_LOC + i));
-            double value = rc.readSharedArray(INDEX_GOODLOC_WORTH + i) /
+            int worth = rc.readSharedArray(INDEX_GOODLOC_WORTH + i);
+            double value = worth /
                     sqrt(m.distanceSquaredTo(loc));
             if(value > bestVal) {
                 bestVal = value;
                 bestLoc = loc;
+                bestWorth = worth;
+                besti = i;
             }
         }
 
+        goodLocWorth = bestWorth;
+        goodLoci = besti;
         return bestLoc;
     }
 
@@ -761,44 +835,18 @@ public abstract class Robot {
         return strength;
     }
 
-    MapLocation closest(MapLocation[] locs) {
-        return closest(myLoc, locs);
-    }
-
-    MapLocation closest(MapLocation from, MapLocation[] locs) {
-        if(locs == null) return null;
-        int mindist = 100000;
+    public MapLocation closest(MapLocation cur, MapLocation[] locs) {
+        int bd = 10000;
         MapLocation best = null;
+        if(locs == null) return null;
 
         for(MapLocation loc : locs) {
-            if(from.distanceSquaredTo(loc) < mindist) {
-                mindist = from.distanceSquaredTo(loc);
+            if(cur.distanceSquaredTo(loc) < bd) {
+                bd = cur.distanceSquaredTo(loc);
                 best = loc;
             }
         }
 
         return best;
     }
-
-    MapLocation[] myArchons() throws GameActionException {
-        int i;
-        for(i=INDEX_MY_HQ; rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
-        MapLocation[] archons = new MapLocation[i];
-        for(int j=INDEX_MY_HQ; j<i; j++) archons[j] =
-                intToLoc(rc.readSharedArray(j));
-
-        return archons;
-    }
-
-    MapLocation[] enemyArchons() throws GameActionException {
-        int i;
-        for(i=INDEX_ENEMY_HQ; rc.readSharedArray(i)>0 && i<INDEX_ENEMY_HQ+4; i++);
-        if(i==INDEX_ENEMY_HQ) return null;
-        MapLocation[] archons = new MapLocation[i-INDEX_ENEMY_HQ];
-        for(int j=INDEX_ENEMY_HQ; j<i; j++) archons[j-INDEX_ENEMY_HQ] =
-                intToLoc(rc.readSharedArray(j));
-
-        return archons;
-    }
-
 }

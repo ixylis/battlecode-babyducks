@@ -60,7 +60,7 @@ public class Watchtower extends Robot {
             } else {
                 if (lastActive < rc.getRoundNum() - 20) {
 
-                    movementTarget = super.getNearestEnemyChunk();
+                    movementTarget = super.getNearestEnemySoldierChunk();
                     if (movementTarget == null)
                         movementTarget = super.getRandomKnownEnemyHQ();
                     if (movementTarget == null)
