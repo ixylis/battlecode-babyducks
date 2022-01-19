@@ -2,8 +2,8 @@ package matir;
 
 import battlecode.common.*;
 
-import static battlecode.common.RobotType.SOLDIER;
-import static battlecode.common.RobotType.WATCHTOWER;
+import static battlecode.common.RobotType.*;
+import static battlecode.common.RobotType.SAGE;
 
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
@@ -20,25 +20,25 @@ public class Soldier extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
-
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        
     }
     /*
      * micro
-     *
+     * 
      * determine whether to attack, retreat, or hold.
      * imagine an advance:
-     * every unit moves forward to the lowest rubble space toward enemy.
-     * our strength = sum 1/(10+rubble) of all spaces with our units that have an enemy in range.
-     * enemy strength is symmetric
-     * if our strength > enemy strength, advance.
-     * advance means move toward the enemy in a low rubble way.
+       * every unit moves forward to the lowest rubble space toward enemy. 
+       * our strength = sum 1/(10+rubble) of all spaces with our units that have an enemy in range.
+       * enemy strength is symmetric
+       * if our strength > enemy strength, advance.
+       * advance means move toward the enemy in a low rubble way.
      * look at the current position:
-     * compute our strength and enemy strength
-     * if enemy strength > our strength, retreat
-     *
-     * find which enemy units are already shooting this turn. if they already have something in their range, then
-     *
+       * compute our strength and enemy strength
+       * if enemy strength > our strength, retreat
+     * 
+     * find which enemy units are already shooting this turn. if they already have something in their range, then 
+     * 
      */
     private Direction lowestRubbleInDirectionFromLocation(MapLocation from, MapLocation target) throws GameActionException {
         Direction d = from.directionTo(target);
@@ -69,7 +69,7 @@ public class Soldier extends Robot {
                 nearest = r.location;
         }
         int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
-
+        
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
          * for this purpose, we go one robot at a time, find the lowest rubble spot it can move to in that direction +/- 45 deg
@@ -193,7 +193,7 @@ public class Soldier extends Robot {
             if(minRubbleDir != Direction.CENTER) {
                 rc.move(minRubbleDir);
             }
-
+            
         }
         rc.setIndicatorString("adv "+myAdvanceStrength + " oppAdv "+enemyAdvanceStrength + " hold "+myHoldStrength+" oppHold "+enemyHoldStrength);
         return true;
@@ -213,29 +213,23 @@ public class Soldier extends Robot {
         c55 = a[5][5];
         c77 = c55;
         int b4 = Clock.getBytecodeNum();
-
+        
         rc.setIndicatorString("[][] = "+(b1-b)+" normal "+(b2-b1)+" "+(b3-b2)+" read "+(b4-b3)+" "+c77);
     }
-
+    
     private void movement() throws GameActionException {
         if(micro())
             return;
 
-        if(movementTarget!=null && rc.canSenseLocation(movementTarget))
-            movementTarget=null;
-        MapLocation y = getNearestEnemyMinerChunk();
-        MapLocation x = getNearestEnemySoldierChunk();
-        if(x == null) movementTarget = y;
-        else if (y == null) movementTarget = x;
-        else {
-            movementTarget = myLoc.distanceSquaredTo(x) < myLoc.distanceSquaredTo(y)
-                    ? x : y;
-        }
-        if(movementTarget==null)
-            movementTarget = super.getRandomKnownEnemyHQ();
-        if(movementTarget==null)
-            movementTarget = super.getRandomPossibleEnemyHQ();
-        moveToward(movementTarget);
+            if(movementTarget!=null && rc.canSenseLocation(movementTarget))
+                movementTarget=null;
+            MapLocation x = super.getNearestEnemyChunk();
+            if(x!=null) movementTarget=x;
+            if(movementTarget==null)
+                movementTarget = super.getRandomKnownEnemyHQ();
+            if(movementTarget==null)
+                movementTarget = super.getRandomPossibleEnemyHQ();
+            moveToward(movementTarget);
     }
     public void attack() throws GameActionException {
         int radius = rc.getType().actionRadiusSquared;
@@ -244,10 +238,8 @@ public class Soldier extends Robot {
         if(enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
         for(RobotInfo rb : enemies) {
-            if((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) &&
-                    (rb.type == SOLDIER || rb.type == WATCHTOWER))
-                    || ((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) ||
-                    (rb.type == SOLDIER || rb.type == WATCHTOWER)) &&
+            if((!isAttacker(bestTarget) && (isAttacker(rb)))
+                    || ((!isAttacker(bestTarget) || isAttacker(rb)) &&
                     bestTarget.health > rb.health)) {
                 bestTarget = rb;
             }

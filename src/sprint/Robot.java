@@ -4,8 +4,7 @@ import battlecode.common.*;
 
 import java.util.Random;
 
-import static battlecode.common.RobotType.SOLDIER;
-import static battlecode.common.RobotType.WATCHTOWER;
+import static battlecode.common.RobotType.*;
 import static java.lang.Math.sqrt;
 
 public abstract class Robot {
@@ -20,6 +19,9 @@ public abstract class Robot {
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
     public static final double HEALTH_FACTOR = 0.2;
+    public static final int INDEX_HQBAD = 55;
+    public static final int INDEX_RELOCATE = 63;
+
     MapLocation myLoc;
     MapLocation[] corners;
 
@@ -83,6 +85,7 @@ public abstract class Robot {
 //        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
 //        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
 //        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
+        myLoc = rc.getLocation();
     }
 
     MapLocation[] recentLocations=new MapLocation[10];
@@ -159,7 +162,7 @@ public abstract class Robot {
     int frustration=10;
     MapLocation lastMoveTowardTarget;
     public void moveToward(MapLocation to) throws GameActionException {
-        if(Robot.DEBUG) {
+        if(anthony.Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
         }
@@ -277,53 +280,43 @@ public abstract class Robot {
             }
         }
         MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9)%10];
-        Direction oldD = rc.getLocation().directionTo(lastMoveTowardTarget);
-        boolean veryDiffDirection = oldD == null || (oldD != ideal && oldD.rotateLeft() != ideal && oldD.rotateRight() != ideal && oldD.rotateLeft().rotateLeft() != ideal && oldD.rotateRight().rotateRight() != ideal);
-        Direction lastMoveDir = (recentLoc==null || veryDiffDirection)?null:me.directionTo(recentLoc);
+        Direction lastMoveDir = (recentLoc==null || to!=lastMoveTowardTarget)?null:me.directionTo(recentLoc);
         lastMoveTowardTarget = to;
-        int dist = Math.max(dx, dy);
-        while(frustration < 200) {
+        while(frustration < 111) {
+            rc.setIndicatorString("frustration "+frustration+" "+ideal);
             Direction d = ideal;
-            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                frustration = 10;
-                break;
+                frustration = 0;
+                return;
             }
             d = ok;
-            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                //frustration = onDiagonal? frustration*dist/(dist+1) : frustration * 2/3;
-                frustration += onDiagonal?15:5;
-                break;
+                frustration = onDiagonal?15:5;
+                return;
             }
             d = ok2;
-            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                //frustration = onDiagonal? frustration*dist/(dist+1) : frustration * 2/3;
-                frustration += onDiagonal?15:5;
-                break;
+                frustration = onDiagonal?15:5;
+                return;
             }
             d = mediocre;
-            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                //frustration = onEdge? frustration*dist/(dist+2) : frustration * 8/7;
                 frustration += onEdge?20:15;
-                break;
+                return;
             }
             d = mediocre2;
-            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
                 rc.move(d);
-                //frustration = onEdge? frustration*dist/(dist+2) : frustration * 8/7;
-                frustration += onEdge?20:15;
-                break;
+                frustration += 20;
+                return;
             }
             frustration += 10;
         }
-        if(!rc.isMovementReady())
-            frustration = Math.min(150, frustration);
-        else
-            frustration = 150;
-        rc.setIndicatorString("frustration "+frustration+" ideal "+ideal+" last "+lastMoveDir);
+        frustration = 100;
     }
     public void moveTowardOld(MapLocation l) throws GameActionException {
         if(Robot.DEBUG) {
@@ -724,5 +717,13 @@ public abstract class Robot {
         }
 
         return strength;
+    }
+
+    public boolean isAttacker(RobotInfo ri) {
+        RobotType rt = ri.type;
+
+        return rt == SOLDIER ||
+                rt == WATCHTOWER ||
+                rt == SAGE;
     }
 }
