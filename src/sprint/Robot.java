@@ -277,39 +277,41 @@ public abstract class Robot {
             }
         }
         MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9)%10];
-        Direction lastMoveDir = (recentLoc==null)?null:me.directionTo(recentLoc);
+        Direction oldD = rc.getLocation().directionTo(lastMoveTowardTarget);
+        boolean veryDiffDirection = oldD == null || (oldD != ideal && oldD.rotateLeft() != ideal && oldD.rotateRight() != ideal && oldD.rotateLeft().rotateLeft() != ideal && oldD.rotateRight().rotateRight() != ideal);
+        Direction lastMoveDir = (recentLoc==null || veryDiffDirection)?null:me.directionTo(recentLoc);
         lastMoveTowardTarget = to;
         int dist = Math.max(dx, dy);
         while(frustration < 200) {
             Direction d = ideal;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
                 rc.move(d);
                 frustration = 10;
                 break;
             }
             d = ok;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
                 rc.move(d);
                 //frustration = onDiagonal? frustration*dist/(dist+1) : frustration * 2/3;
                 frustration += onDiagonal?15:5;
                 break;
             }
             d = ok2;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
                 rc.move(d);
                 //frustration = onDiagonal? frustration*dist/(dist+1) : frustration * 2/3;
                 frustration += onDiagonal?15:5;
                 break;
             }
             d = mediocre;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
                 rc.move(d);
                 //frustration = onEdge? frustration*dist/(dist+2) : frustration * 8/7;
                 frustration += onEdge?20:15;
                 break;
             }
             d = mediocre2;
-            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
+            if(d != null && lastMoveDir != d && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration - 10) {
                 rc.move(d);
                 //frustration = onEdge? frustration*dist/(dist+2) : frustration * 8/7;
                 frustration += onEdge?20:15;
