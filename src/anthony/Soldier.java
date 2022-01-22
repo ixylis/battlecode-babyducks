@@ -55,6 +55,8 @@ public class Soldier extends Robot {
         else
             return d.rotateRight();
     }
+    RobotInfo[] recentEnemies = new RobotInfo[10];
+    int[] recentEnemiesRounds = new int[10];
     private boolean micro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
@@ -218,18 +220,30 @@ public class Soldier extends Robot {
     }
     
     private void movement() throws GameActionException {
+        if (rc.getHealth() < rc.getType().health && hqLoc != null) {
+            // move toward HQ to heal
+            if (rc.getHealth() <= 3) {
+                movementTarget = hqLoc;
+                moveToward(movementTarget);
+                return;
+            }
+            // stay in HQ range while healing)
+            if (rc.getLocation().distanceSquaredTo(hqLoc) < RobotType.ARCHON.actionRadiusSquared) {
+                return;
+            }
+        }
         if(micro())
             return;
 
-            if(movementTarget!=null && rc.canSenseLocation(movementTarget))
-                movementTarget=null;
-            MapLocation x = super.getNearestEnemyChunk();
-            if(x!=null) movementTarget=x;
-            if(movementTarget==null)
-                movementTarget = super.getRandomKnownEnemyHQ();
-            if(movementTarget==null)
-                movementTarget = super.getRandomPossibleEnemyHQ();
-            moveToward(movementTarget);
+        if(movementTarget!=null && rc.canSenseLocation(movementTarget))
+            movementTarget=null;
+        MapLocation x = super.getNearestEnemyChunk();
+        if(x!=null) movementTarget=x;
+        if(movementTarget==null)
+            movementTarget = super.getRandomKnownEnemyHQ();
+        if(movementTarget==null)
+            movementTarget = super.getRandomPossibleEnemyHQ();
+        moveToward(movementTarget);
     }
     public void attack() throws GameActionException {
         int radius = rc.getType().actionRadiusSquared;
