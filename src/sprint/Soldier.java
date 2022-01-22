@@ -68,7 +68,7 @@ public class Soldier extends Robot {
         outer:
         for(RobotInfo r : enemies) {
             for(int i=0;i<recentEnemies.length;i++) {
-                if(recentEnemies[i].ID == r.ID) {
+                if(recentEnemies[i]!= null && recentEnemies[i].ID == r.ID) {
                     recentEnemies[i] = r;
                     recentEnemiesRounds[i] = rc.getRoundNum();
                     continue outer;
@@ -106,7 +106,7 @@ public class Soldier extends Robot {
             
         }
         int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
-        int friendlyStrength = 3;
+        int friendlyStrength = 3*100/(10+rc.senseRubble(rc.getLocation()));
         int friendlyHP = rc.getHealth();
         for(RobotInfo r : friends) {
             if(4 <= Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y))) {
@@ -137,11 +137,19 @@ public class Soldier extends Robot {
         if(canShootFrom[8] && nearbyRubble[8]==nearbyRubble[bestDir])
             attack();
         //retreat condition
+        if(bestDir==-1) {
+            for(int i=0;i<9;i++) {
+                if(Direction.allDirections()[i] == rc.getLocation().directionTo(nearest)) {
+                    bestDir = i;
+                    break;
+                }
+            }
+        }
         Direction d = nearest.directionTo(rc.getLocation());
         int retreat1 = rc.canMove(d)? rc.senseRubble(rc.getLocation().add(d)) : 1000;
         int retreat2 = rc.canMove(d.rotateLeft())? rc.senseRubble(rc.getLocation().add(d.rotateLeft())) : 1000;
         int retreat3 = rc.canMove(d.rotateRight())? rc.senseRubble(rc.getLocation().add(d.rotateRight())) : 1000;
-        if(enemyStrength*enemyHP > friendlyStrength*friendlyHP || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP)) {
+        if(enemyStrength*enemyHP * (nearbyRubble[bestDir]+10) > friendlyStrength*friendlyHP * (nearbyRubble[8]+10) || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP)) {
             int b = retreat1;
             Direction bestRetreatDir = d;
             if(retreat2 < b) {b = retreat2; bestRetreatDir = d.rotateLeft();}
@@ -151,6 +159,8 @@ public class Soldier extends Robot {
         }
         if(rc.canMove(Direction.allDirections()[bestDir]))
             rc.move(Direction.allDirections()[bestDir]);
+        if(rc.isActionReady())
+            attack();
         rc.setIndicatorString("eHP "+enemyHP+" eS "+enemyStrength+" fHP "+friendlyHP+" fS "+friendlyStrength);
         return true;
     }
