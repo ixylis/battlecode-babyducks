@@ -1,23 +1,62 @@
-Macro:
-1) (a) Store lead locs globally.
-   (b) Route miners towards deposits.
-2) Soldiers should explore instead of miners, miners should just mine.
-3) Soldiers should go towards contested lead depos instead of archons
+Create globals for
+---------------------------
+lead amount/importance
+enemy units (miners vs attackers)
+friendly attackers (existing vs targeting)
 
-Miner micro: DONE
-(1) Miners should mine the last lead if it's under enemy control.
-(2) Miners should retreat if attacked and no friendly soldiers around
+Macro
+-----
+Figure out when to build labs, watchtowers
+Use global lead info for macro decisions
 
-Soldier micro:
-(1) While holding, low HP soldiers should retreat and high HP soldiers should advance
-(2) if 1v1 vs enemy soldier, always go on the offense unless on lowground
+Soldier
+-------
+Micro:
+Complicated
 
+Targeting:
+Use friendly + enemy heatmaps
+Try to capture more space in general
+Prioritize lead heavy regions
 
-public Throwable getCause()
-Returns the cause of this throwable or null if the cause is nonexistent or unknown. (The cause is the throwable that caused this throwable to get thrown.)
-This implementation returns the cause that was supplied via one of the constructors requiring a Throwable, or that was set after creation with the initCause(Throwable) method. While it is typically unnecessary to override this method, a subclass can override it to return a cause set by some other means. This is appropriate for a "legacy chained throwable" that predates the addition of chained exceptions to Throwable. Note that it is not necessary to override any of the PrintStackTrace methods, all of which invoke the getCause method to determine the cause of a throwable.
-Returns:
-the cause of this throwable or null if the cause is nonexistent or unknown.
-Since:
-1.4
-  < 1.8 > (rt.jar)
+Sage
+-----
+Micro:
+Stay out of soldier range
+Retreat on cd
+Try to shoot from low rubble
+Go back to heal if low hp (priority over soldier)
+
+Targeting:
+Same as soldiers
+
+Watchtower
+-----------
+Figure out if even playable; if so when
+
+Micro:
+Place diagonally to be permeable.
+Switch to turret if area sufficiently safe
+Capturing a rank --- back watchtowers move forward,
+one-by-one, from outside to inside.
+
+Targeting:
+Prioritize permanent high value areas
+
+Miner
+-----
+Micro:
+Optimize locally for efficient mining
+Retreat from enemy soldiers
+Mine moving away from archon
+If mining in risky area, clear out deposits
+If low hp, return to safe area and blow up
+
+Targeting:
+Use lead importance
+Prioritize closer to home
+
+Misc
+-----
+Deal with anomalies
+Figure out symmetry

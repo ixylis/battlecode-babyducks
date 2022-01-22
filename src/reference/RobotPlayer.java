@@ -28,7 +28,7 @@ public strictfp class RobotPlayer {
         switch(rc.getType()) {
         case MINER: new Miner(rc).run();
         case SOLDIER: new Soldier(rc).run();
-        case SAGE: new Soldier(rc).run();
+        case SAGE: new Sage(rc).run();
         case ARCHON: new Archon(rc).run();
         case BUILDER: new Builder(rc).run();
         case WATCHTOWER: new Watchtower(rc).run();
