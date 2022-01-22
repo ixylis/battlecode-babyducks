@@ -45,7 +45,7 @@ public class Archon extends Robot {
 
         anomalies = rc.getAnomalySchedule();
         getNextVortex();
-        considerRelocate();
+        //considerRelocate();
     }
 
     private void getNextVortex() {
@@ -89,7 +89,12 @@ public class Archon extends Robot {
         if (die && rc.readSharedArray(INDEX_RELOCATE) == 0) {
             buildMiner();
             RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
-            if (nearby.length >= 2) rc.disintegrate();
+            if (nearby.length >= 2) {
+                for (RobotInfo robot : nearby) {
+                    if (robot.type == RobotType.MINER && robot.location.distanceSquaredTo(rc.getLocation()) <= 2)
+                        rc.disintegrate();
+                }
+            }
             return;
         }
 
@@ -256,6 +261,7 @@ public class Archon extends Robot {
     }
 
     private void considerRelocate() throws GameActionException {
+        if (die) return; // don't bother moving if dying anyway
         int nextEvent = vortexIndex < anomalies.length ?
                 anomalies[vortexIndex].roundNumber : GAME_MAX_NUMBER_OF_ROUNDS;
         int round = rc.getRoundNum();
