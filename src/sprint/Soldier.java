@@ -58,7 +58,6 @@ public class Soldier extends Robot {
         else
             return d.rotateRight();
     }
-
     RobotInfo[] recentEnemies = new RobotInfo[10];
     int[] recentEnemiesRounds = new int[10];
 
@@ -66,23 +65,104 @@ public class Soldier extends Robot {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
-        if (enemies.length == 0)
-            return false;
-        boolean[][] toBeOccupied = new boolean[11][11];
-        MapLocation nearest = null;
-        for (RobotInfo r : enemies) {
-            //if(r.type == RobotType.MINER) continue;
-            if (nearest == null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
-                nearest = r.location;
+        outer:
+        for(RobotInfo r : enemies) {
+            for(int i=0;i<recentEnemies.length;i++) {
+                if(recentEnemies[i].ID == r.ID) {
+                    recentEnemies[i] = r;
+                    recentEnemiesRounds[i] = rc.getRoundNum();
+                    continue outer;
+                }
+            }
+            int oldest=0;
+            for(int i=0;i<recentEnemies.length;i++) {
+                if(recentEnemiesRounds[i] < recentEnemiesRounds[oldest])
+                    oldest = i;
+            }
+            recentEnemies[oldest] = r;
+            recentEnemiesRounds[oldest] = rc.getRoundNum();
         }
-        int nearestInfDistance = max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
-
+        boolean existsRecentEnemy = false;
+        for(int i=0;i<recentEnemies.length;i++) {
+            if(recentEnemiesRounds[i] > rc.getRoundNum() - 20) {
+                existsRecentEnemy = true;
+                break;
+            }
+        }
+        if(!existsRecentEnemy) return false;
+        int enemyStrength = 0;
+        int enemyHP = 0;
+        MapLocation nearest = null;
+        for(int i=0;i<recentEnemies.length;i++) {
+            //if(r.type == RobotType.MINER) continue;
+            RobotInfo r = recentEnemies[i];
+            if(recentEnemiesRounds[i] <= rc.getRoundNum() - 20) continue;
+            if(r.type != RobotType.MINER) {
+                enemyStrength += 3*100/(10+(rc.canSenseLocation(r.location)? rc.senseRubble(r.location) : 0));
+                enemyHP += r.health;
+            }
+            if(nearest==null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
+                nearest = r.location;
+            
+        }
+        int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
+        int friendlyStrength = 3;
+        int friendlyHP = rc.getHealth();
+        for(RobotInfo r : friends) {
+            if(4 <= Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y))) {
+                friendlyStrength += 3*100/(10+rc.senseRubble(r.location));
+                friendlyHP += r.health;
+            }
+        }
+        int[] nearbyRubble = new int[9];
+        for(int i=0;i<9;i++) {
+            MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
+        }
+        //nearbyRubble[8]--;//make the current location very slightly more appealing to shoot from
+        boolean[] canShootFrom = new boolean[9];
+        int bestDir=-1;
+        for(int i=0;i<9;i++) {
+            //if(rc.senseRobotAtLocation(rc.getLocation().add(Direction.allDirections()[i]))!=null) continue;
+            if(bestDir!=-1 && nearbyRubble[bestDir] < nearbyRubble[i]) continue;
+            if(!rc.canMove(Direction.allDirections()[i])) continue;
+            for(RobotInfo r : enemies) {
+                if(rc.getLocation().add(Direction.allDirections()[i]).distanceSquaredTo(r.location) < RobotType.SOLDIER.actionRadiusSquared) {
+                    canShootFrom[i] = true;
+                    bestDir = i;
+                    break;
+                }
+            }
+        }
+        if(canShootFrom[8] && nearbyRubble[8]==nearbyRubble[bestDir])
+            attack();
+        //retreat condition
+        Direction d = nearest.directionTo(rc.getLocation());
+        int retreat1 = rc.canMove(d)? rc.senseRubble(rc.getLocation().add(d)) : 1000;
+        int retreat2 = rc.canMove(d.rotateLeft())? rc.senseRubble(rc.getLocation().add(d.rotateLeft())) : 1000;
+        int retreat3 = rc.canMove(d.rotateRight())? rc.senseRubble(rc.getLocation().add(d.rotateRight())) : 1000;
+        if(enemyStrength*enemyHP > friendlyStrength*friendlyHP || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP)) {
+            int b = retreat1;
+            Direction bestRetreatDir = d;
+            if(retreat2 < b) {b = retreat2; bestRetreatDir = d.rotateLeft();}
+            if(retreat3 < b) {b = retreat3; bestRetreatDir = d.rotateRight();}
+            if((b+10) * friendlyStrength*friendlyHP < (nearbyRubble[8]+10) * enemyStrength*enemyHP)
+                rc.move(bestRetreatDir);
+        }
+        if(rc.canMove(Direction.allDirections()[bestDir]))
+            rc.move(Direction.allDirections()[bestDir]);
+        rc.setIndicatorString("eHP "+enemyHP+" eS "+enemyStrength+" fHP "+friendlyHP+" fS "+friendlyStrength);
+        return true;
+    }
+    private void oldMicro() {
+        
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
          * for this purpose, we go one robot at a time, find the lowest rubble spot it can move to in that direction +/- 45 deg
          * declare that spot 'occupied by friendly forces'
          */
-        Direction toMove = null;
+        /*
+        Direction toMove=null;
         int myAdvanceStrength = 0;
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
@@ -208,6 +288,7 @@ public class Soldier extends Robot {
         }
         rc.setIndicatorString("adv " + myAdvanceStrength + " oppAdv " + enemyAdvanceStrength + " hold " + myHoldStrength + " oppHold " + enemyHoldStrength);
         return true;
+        */
     }
 
     private void bytecodeTest() {
