@@ -731,6 +731,7 @@ public abstract class Robot {
     }
     
 
+    MapLocation lastNavEndpoint = null;
     public void nav(MapLocation to) throws GameActionException {
         int[] rawCosts;
         /*
@@ -850,12 +851,12 @@ public abstract class Robot {
         int r77 = (onMapX7 && onMapY7)?rc.senseRubble(me.translate(0,0))/frustration+10:1000;
 
 
-        
+
         //bytecode so far = 1553;
         int b1 = Clock.getBytecodeNum();
         
         for(RobotInfo r : rc.senseNearbyRobots(20)) {
-            switch((myx - r.location.x)*13 + (myy - r.location.y)) {
+            switch((r.location.x - myx)*13 + (r.location.y - myy)) {
             case -54:r35*=1+frustration;continue;
             case -50:r39*=1+frustration;continue;
             case -30:r53*=1+frustration;continue;
@@ -934,34 +935,67 @@ public abstract class Robot {
         MapLocation recent = recentLocations[(recentLocationsIndex + 9)%10];
         if(recent == null) recent = me;
         
-        int c25 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-5,-2))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-5,-2)))/2);
-        int c29 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-5,2))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-5,2)))/2);
-        int c52 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-2,-5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-2,-5)))/2);
-        int c5c = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-2,5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-2,5)))/2);
-        int c92 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(2,-5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(2,-5)))/2);
-        int c9c = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(2,5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(2,5)))/2);
-        int cc5 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(5,-2))) - Math.sqrt(recent.distanceSquaredTo(me.translate(5,-2)))/2);
-        int cc9 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(5,2))) - Math.sqrt(recent.distanceSquaredTo(me.translate(5,2)))/2);
-        int c26 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-5,-1))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-5,-1)))/2);
-        int c28 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-5,1))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-5,1)))/2);
-        int c62 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-1,-5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-1,-5)))/2);
-        int c6c = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-1,5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-1,5)))/2);
-        int c82 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(1,-5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(1,-5)))/2);
-        int c8c = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(1,5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(1,5)))/2);
-        int cc6 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(5,-1))) - Math.sqrt(recent.distanceSquaredTo(me.translate(5,-1)))/2);
-        int cc8 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(5,1))) - Math.sqrt(recent.distanceSquaredTo(me.translate(5,1)))/2);
-        int c27 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-5,0))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-5,0)))/2);
-        int c34 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-4,-3))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-4,-3)))/2);
-        int c3a = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-4,3))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-4,3)))/2);
-        int c43 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-3,-4))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-3,-4)))/2);
-        int c4b = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(-3,4))) - Math.sqrt(recent.distanceSquaredTo(me.translate(-3,4)))/2);
-        int c72 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(0,-5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(0,-5)))/2);
-        int c7c = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(0,5))) - Math.sqrt(recent.distanceSquaredTo(me.translate(0,5)))/2);
-        int ca3 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(3,-4))) - Math.sqrt(recent.distanceSquaredTo(me.translate(3,-4)))/2);
-        int cab = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(3,4))) - Math.sqrt(recent.distanceSquaredTo(me.translate(3,4)))/2);
-        int cb4 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(4,-3))) - Math.sqrt(recent.distanceSquaredTo(me.translate(4,-3)))/2);
-        int cba = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(4,3))) - Math.sqrt(recent.distanceSquaredTo(me.translate(4,3)))/2);
-        int cc7 = 10 * (int)(Math.sqrt(to.distanceSquaredTo(me.translate(5,0))) - Math.sqrt(recent.distanceSquaredTo(me.translate(5,0)))/2);
+        //navRecent
+        MapLocation l=recent;
+        if(l!=null){switch((l.x-myx)*13+(l.y-myy)){
+        case -14:r66+=400;r67+=400;r76+=400;break;
+        case -12:r68+=400;r67+=400;r78+=400;break;
+        case 12:r86+=400;r76+=400;r87+=400;break;
+        case 14:r88+=400;r78+=400;r87+=400;break;
+        case -13:r66+=400;r68+=400;r67+=400;r77+=400;break;
+        case -1:r66+=400;r86+=400;r76+=400;r77+=400;break;
+        case 1:r68+=400;r88+=400;r78+=400;r77+=400;break;
+        case 13:r86+=400;r88+=400;r87+=400;r77+=400;break;
+        default:break;}}
+        
+        //nav3
+        
+        int c25 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-5,-2)));
+        int c29 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-5,2)));
+        int c52 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-2,-5)));
+        int c5c = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-2,5)));
+        int c92 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(2,-5)));
+        int c9c = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(2,5)));
+        int cc5 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(5,-2)));
+        int cc9 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(5,2)));
+        int c26 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-5,-1)));
+        int c28 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-5,1)));
+        int c62 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-1,-5)));
+        int c6c = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-1,5)));
+        int c82 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(1,-5)));
+        int c8c = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(1,5)));
+        int cc6 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(5,-1)));
+        int cc8 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(5,1)));
+        int c27 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-5,0)));
+        int c34 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-4,-3)));
+        int c3a = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-4,3)));
+        int c43 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-3,-4)));
+        int c4b = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-3,4)));
+        int c72 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(0,-5)));
+        int c7c = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(0,5)));
+        int ca3 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(3,-4)));
+        int cab = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(3,4)));
+        int cb4 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(4,-3)));
+        int cba = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(4,3)));
+        int cc7 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(5,0)));
+        
+        if(lastNavEndpoint != null) {
+            /*
+            Direction lastD = null;
+            Direction currentD = me.directionTo(to);
+            if(lastMoveTowardTarget != null) 
+                lastD = me.directionTo(lastMoveTowardTarget);
+            if(lastMoveTowardTarget == null || lastD==currentD || lastD==currentD.rotateLeft() || lastD==currentD.rotateRight()) {
+                //navRecent2
+                switch((lastNavEndpoint.x - myx)*13+(lastNavEndpoint.y - myy)) {
+                case -67:c25-=400;break;case -63:c29-=400;break;case -31:c52-=400;break;case -21:c5c-=400;break;case 21:c92-=400;break;case 31:c9c-=400;break;case 63:cc5-=400;break;case 67:cc9-=400;break;case -66:c26-=400;break;case -64:c28-=400;break;case -18:c62-=400;break;case -8:c6c-=400;break;case 8:c82-=400;break;case 18:c8c-=400;break;case 64:cc6-=400;break;case 66:cc8-=400;break;case -65:c27-=400;break;case -55:c34-=400;break;case -49:c3a-=400;break;case -43:c43-=400;break;case -35:c4b-=400;break;case -5:c72-=400;break;case 5:c7c-=400;break;case 35:ca3-=400;break;case 43:cab-=400;break;case 49:cb4-=400;break;case 55:cba-=400;break;case 65:cc7-=400;break;case -54:c25-=400;break;case -50:c29-=400;break;case -30:c52-=400;break;case -22:c5c-=400;break;case 22:c92-=400;break;case 30:c9c-=400;break;case 50:cc5-=400;break;case 54:cc9-=400;break;case -42:c34-=400;break;case -36:c3a-=400;break;case 36:ca3-=400;break;case 42:cab-=400;break;case -53:c26-=400;break;case -51:c28-=400;break;case -17:c62-=400;break;case -9:c6c-=400;break;case 9:c82-=400;break;case 17:c8c-=400;break;case 51:cc6-=400;break;case 53:cc8-=400;break;case -52:c27-=400;break;case -4:c72-=400;break;case 4:c7c-=400;break;case 52:cc7-=400;break;case -41:c34-=400;break;case -37:c3a-=400;break;case -29:c43-=400;break;case -23:c4b-=400;break;case 23:ca3-=400;break;case 29:cab-=400;break;case 37:cb4-=400;break;case 41:cba-=400;break;case -40:c26-=400;break;case -38:c28-=400;break;case -16:c62-=400;break;case -10:c6c-=400;break;case 10:c82-=400;break;case 16:c8c-=400;break;case 38:cc6-=400;break;case 40:cc8-=400;break;case -39:c27-=400;break;case -3:c72-=400;break;case 3:c7c-=400;break;case 39:cc7-=400;break;case -28:c34-=400;break;case -24:c3a-=400;break;case 24:ca3-=400;break;case 28:cab-=400;break;case -27:c34-=400;break;case -25:c3a-=400;break;case -15:c43-=400;break;case -11:c4b-=400;break;case 11:ca3-=400;break;case 15:cab-=400;break;case 25:cb4-=400;break;case 27:cba-=400;break;case -26:c27-=400;break;case -2:c72-=400;break;case 2:c7c-=400;break;case 26:cc7-=400;break;case -14:c34-=400;break;case -12:c3a-=400;break;case 12:ca3-=400;break;case 14:cab-=400;break;case -13:c27-=400;break;case -1:c72-=400;break;case 1:c7c-=400;break;case 13:cc7-=400;break;case 0:c27-=400;break;default:break;
+                }
+                //end navRecent2
+            }
+            */
+            rc.setIndicatorDot(lastNavEndpoint, 0, 255, 255);
+        }
+        
         b=c25; if(c26<b) b=c26; if(c34<b) b=c34; int c35=b+r35;
         b=c29; if(c28<b) b=c28; if(c3a<b) b=c3a; int c39=b+r39;
         b=c52; if(c62<b) b=c62; if(c43<b) b=c43; int c53=b+r53;
@@ -1031,6 +1065,7 @@ public abstract class Robot {
         b=c69; if(c89<b) b=c89; if(c79<b) b=c79; if(c68<b) b=c68; if(c88<b) b=c88; if(c67<b) b=c67; int c78=b+r78;
         b=c96; if(c98<b) b=c98; if(c97<b) b=c97; if(c86<b) b=c86; if(c88<b) b=c88; if(c76<b) b=c76; if(c78<b) b=c78; int c87=b+r87;
 
+        
         int b3 = Clock.getBytecodeNum();
         /*//round 2
         b=c96; if(c98<b) b=c98; if(c97<b) b=c97; if(c86<b) b=c86; if(c88<b) b=c88; if(c76<b) b=c76; if(c78<b) b=c78; if(c87<b) b=c87; c87=b+r87;
@@ -1116,132 +1151,97 @@ public abstract class Robot {
             rc.move(bestD);
             frustration = 1;
         } else
-            frustration += 1;
+            frustration = 1;
         rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
 
         int b5 = Clock.getBytecodeNum();
+        //navpretty
         
-        rc.setIndicatorString("setup "+(b1-b0)+" robots "+(b2-b1)+" i "+(b3-b2) + " i2 "+(b4-b3)+" move "+(b5-b4));
-        
-        /*
         MapLocation current = me;
+        MapLocation prev = null;
+        int n=0;
         outer:
         while(true) {
-            b = 999999;
-            MapLocation bestStep = null;
-            for(Direction d : Robot.directions) {
-                MapLocation m = current.add(d);
-                int c;
-                switch((m.x - myx)*13 + (m.y - myy)) {
-                case -67:c=c25;break;
-                case -63:c=c29;break;
-                case -31:c=c52;break;
-                case -21:c=c5c;break;
-                case 21:c=c92;break;
-                case 31:c=c9c;break;
-                case 63:c=cc5;break;
-                case 67:c=cc9;break;
-                case -66:c=c26;break;
-                case -64:c=c28;break;
-                case -18:c=c62;break;
-                case -8:c=c6c;break;
-                case 8:c=c82;break;
-                case 18:c=c8c;break;
-                case 64:c=cc6;break;
-                case 66:c=cc8;break;
-                case -65:c=c27;break;
-                case -55:c=c34;break;
-                case -49:c=c3a;break;
-                case -43:c=c43;break;
-                case -35:c=c4b;break;
-                case -5:c=c72;break;
-                case 5:c=c7c;break;
-                case 35:c=ca3;break;
-                case 43:c=cab;break;
-                case 49:c=cb4;break;
-                case 55:c=cba;break;
-                case 65:c=cc7;break;
-                case -54:c=c35;break;
-                case -50:c=c39;break;
-                case -30:c=c53;break;
-                case -22:c=c5b;break;
-                case 22:c=c93;break;
-                case 30:c=c9b;break;
-                case 50:c=cb5;break;
-                case 54:c=cb9;break;
-                case -42:c=c44;break;
-                case -36:c=c4a;break;
-                case 36:c=ca4;break;
-                case 42:c=caa;break;
-                case -53:c=c36;break;
-                case -51:c=c38;break;
-                case -17:c=c63;break;
-                case -9:c=c6b;break;
-                case 9:c=c83;break;
-                case 17:c=c8b;break;
-                case 51:c=cb6;break;
-                case 53:c=cb8;break;
-                case -52:c=c37;break;
-                case -4:c=c73;break;
-                case 4:c=c7b;break;
-                case 52:c=cb7;break;
-                case -41:c=c45;break;
-                case -37:c=c49;break;
-                case -29:c=c54;break;
-                case -23:c=c5a;break;
-                case 23:c=c94;break;
-                case 29:c=c9a;break;
-                case 37:c=ca5;break;
-                case 41:c=ca9;break;
-                case -40:c=c46;break;
-                case -38:c=c48;break;
-                case -16:c=c64;break;
-                case -10:c=c6a;break;
-                case 10:c=c84;break;
-                case 16:c=c8a;break;
-                case 38:c=ca6;break;
-                case 40:c=ca8;break;
-                case -39:c=c47;break;
-                case -3:c=c74;break;
-                case 3:c=c7a;break;
-                case 39:c=ca7;break;
-                case -28:c=c55;break;
-                case -24:c=c59;break;
-                case 24:c=c95;break;
-                case 28:c=c99;break;
-                case -27:c=c56;break;
-                case -25:c=c58;break;
-                case -15:c=c65;break;
-                case -11:c=c69;break;
-                case 11:c=c85;break;
-                case 15:c=c89;break;
-                case 25:c=c96;break;
-                case 27:c=c98;break;
-                case -26:c=c57;break;
-                case -2:c=c75;break;
-                case 2:c=c79;break;
-                case 26:c=c97;break;
-                case -14:c=c66;break;
-                case -12:c=c68;break;
-                case 12:c=c86;break;
-                case 14:c=c88;break;
-                case -13:c=c67;break;
-                case -1:c=c76;break;
-                case 1:c=c78;break;
-                case 13:c=c87;break;
-                case 0:c=999999;break;
-                default:break outer;
-
-                }
-                if(c < b) {
-                    b = c;
-                    bestStep = m;
-                }
-            }
-            if(bestStep == null) rc.resign();
-            rc.setIndicatorLine(current, bestStep, 0, 255, 255);
-            current = bestStep;
+        switch(n){
+        case -54:b=c25;n=-67;current=me.translate(-4,-2);if(c26<b){b=c26;n=-66;}if(c34<b){b=c34;n=-55;}if(c35<b){b=c35;n=-54;}if(c44<b){b=c44;n=-42;}if(c36<b){b=c36;n=-53;}if(c45<b){b=c45;n=-41;}if(c46<b){b=c46;n=-40;}break;
+        case -50:b=c29;n=-63;current=me.translate(-4,2);if(c28<b){b=c28;n=-64;}if(c3a<b){b=c3a;n=-49;}if(c39<b){b=c39;n=-50;}if(c4a<b){b=c4a;n=-36;}if(c38<b){b=c38;n=-51;}if(c49<b){b=c49;n=-37;}if(c48<b){b=c48;n=-38;}break;
+        case -30:b=c52;n=-31;current=me.translate(-2,-4);if(c62<b){b=c62;n=-18;}if(c43<b){b=c43;n=-43;}if(c53<b){b=c53;n=-30;}if(c44<b){b=c44;n=-42;}if(c63<b){b=c63;n=-17;}if(c54<b){b=c54;n=-29;}if(c64<b){b=c64;n=-16;}break;
+        case -22:b=c5c;n=-21;current=me.translate(-2,4);if(c6c<b){b=c6c;n=-8;}if(c4b<b){b=c4b;n=-35;}if(c5b<b){b=c5b;n=-22;}if(c4a<b){b=c4a;n=-36;}if(c6b<b){b=c6b;n=-9;}if(c5a<b){b=c5a;n=-23;}if(c6a<b){b=c6a;n=-10;}break;
+        case 22:b=c92;n=21;current=me.translate(2,-4);if(c82<b){b=c82;n=8;}if(ca3<b){b=ca3;n=35;}if(c93<b){b=c93;n=22;}if(ca4<b){b=ca4;n=36;}if(c83<b){b=c83;n=9;}if(c94<b){b=c94;n=23;}if(c84<b){b=c84;n=10;}break;
+        case 30:b=c9c;n=31;current=me.translate(2,4);if(c8c<b){b=c8c;n=18;}if(cab<b){b=cab;n=43;}if(c9b<b){b=c9b;n=30;}if(caa<b){b=caa;n=42;}if(c8b<b){b=c8b;n=17;}if(c9a<b){b=c9a;n=29;}if(c8a<b){b=c8a;n=16;}break;
+        case 50:b=cc5;n=63;current=me.translate(4,-2);if(cc6<b){b=cc6;n=64;}if(cb4<b){b=cb4;n=49;}if(cb5<b){b=cb5;n=50;}if(ca4<b){b=ca4;n=36;}if(cb6<b){b=cb6;n=51;}if(ca5<b){b=ca5;n=37;}if(ca6<b){b=ca6;n=38;}break;
+        case 54:b=cc9;n=67;current=me.translate(4,2);if(cc8<b){b=cc8;n=66;}if(cba<b){b=cba;n=55;}if(cb9<b){b=cb9;n=54;}if(caa<b){b=caa;n=42;}if(cb8<b){b=cb8;n=53;}if(ca9<b){b=ca9;n=41;}if(ca8<b){b=ca8;n=40;}break;
+        case -42:b=c34;n=-55;current=me.translate(-3,-3);if(c43<b){b=c43;n=-43;}if(c35<b){b=c35;n=-54;}if(c53<b){b=c53;n=-30;}if(c44<b){b=c44;n=-42;}if(c45<b){b=c45;n=-41;}if(c54<b){b=c54;n=-29;}if(c55<b){b=c55;n=-28;}break;
+        case -36:b=c3a;n=-49;current=me.translate(-3,3);if(c4b<b){b=c4b;n=-35;}if(c39<b){b=c39;n=-50;}if(c5b<b){b=c5b;n=-22;}if(c4a<b){b=c4a;n=-36;}if(c49<b){b=c49;n=-37;}if(c5a<b){b=c5a;n=-23;}if(c59<b){b=c59;n=-24;}break;
+        case 36:b=ca3;n=35;current=me.translate(3,-3);if(cb4<b){b=cb4;n=49;}if(c93<b){b=c93;n=22;}if(cb5<b){b=cb5;n=50;}if(ca4<b){b=ca4;n=36;}if(c94<b){b=c94;n=23;}if(ca5<b){b=ca5;n=37;}if(c95<b){b=c95;n=24;}break;
+        case 42:b=cab;n=43;current=me.translate(3,3);if(cba<b){b=cba;n=55;}if(c9b<b){b=c9b;n=30;}if(cb9<b){b=cb9;n=54;}if(caa<b){b=caa;n=42;}if(c9a<b){b=c9a;n=29;}if(ca9<b){b=ca9;n=41;}if(c99<b){b=c99;n=28;}break;
+        case -53:b=c25;n=-67;current=me.translate(-4,-1);if(c26<b){b=c26;n=-66;}if(c27<b){b=c27;n=-65;}if(c35<b){b=c35;n=-54;}if(c36<b){b=c36;n=-53;}if(c37<b){b=c37;n=-52;}if(c45<b){b=c45;n=-41;}if(c46<b){b=c46;n=-40;}if(c47<b){b=c47;n=-39;}break;
+        case -51:b=c29;n=-63;current=me.translate(-4,1);if(c28<b){b=c28;n=-64;}if(c27<b){b=c27;n=-65;}if(c39<b){b=c39;n=-50;}if(c38<b){b=c38;n=-51;}if(c37<b){b=c37;n=-52;}if(c49<b){b=c49;n=-37;}if(c48<b){b=c48;n=-38;}if(c47<b){b=c47;n=-39;}break;
+        case -17:b=c52;n=-31;current=me.translate(-1,-4);if(c62<b){b=c62;n=-18;}if(c72<b){b=c72;n=-5;}if(c53<b){b=c53;n=-30;}if(c63<b){b=c63;n=-17;}if(c73<b){b=c73;n=-4;}if(c54<b){b=c54;n=-29;}if(c64<b){b=c64;n=-16;}if(c74<b){b=c74;n=-3;}break;
+        case -9:b=c5c;n=-21;current=me.translate(-1,4);if(c6c<b){b=c6c;n=-8;}if(c7c<b){b=c7c;n=5;}if(c5b<b){b=c5b;n=-22;}if(c6b<b){b=c6b;n=-9;}if(c7b<b){b=c7b;n=4;}if(c5a<b){b=c5a;n=-23;}if(c6a<b){b=c6a;n=-10;}if(c7a<b){b=c7a;n=3;}break;
+        case 9:b=c92;n=21;current=me.translate(1,-4);if(c82<b){b=c82;n=8;}if(c72<b){b=c72;n=-5;}if(c93<b){b=c93;n=22;}if(c83<b){b=c83;n=9;}if(c73<b){b=c73;n=-4;}if(c94<b){b=c94;n=23;}if(c84<b){b=c84;n=10;}if(c74<b){b=c74;n=-3;}break;
+        case 17:b=c9c;n=31;current=me.translate(1,4);if(c8c<b){b=c8c;n=18;}if(c7c<b){b=c7c;n=5;}if(c9b<b){b=c9b;n=30;}if(c8b<b){b=c8b;n=17;}if(c7b<b){b=c7b;n=4;}if(c9a<b){b=c9a;n=29;}if(c8a<b){b=c8a;n=16;}if(c7a<b){b=c7a;n=3;}break;
+        case 51:b=cc5;n=63;current=me.translate(4,-1);if(cc6<b){b=cc6;n=64;}if(cc7<b){b=cc7;n=65;}if(cb5<b){b=cb5;n=50;}if(cb6<b){b=cb6;n=51;}if(cb7<b){b=cb7;n=52;}if(ca5<b){b=ca5;n=37;}if(ca6<b){b=ca6;n=38;}if(ca7<b){b=ca7;n=39;}break;
+        case 53:b=cc9;n=67;current=me.translate(4,1);if(cc8<b){b=cc8;n=66;}if(cc7<b){b=cc7;n=65;}if(cb9<b){b=cb9;n=54;}if(cb8<b){b=cb8;n=53;}if(cb7<b){b=cb7;n=52;}if(ca9<b){b=ca9;n=41;}if(ca8<b){b=ca8;n=40;}if(ca7<b){b=ca7;n=39;}break;
+        case -52:b=c26;n=-66;current=me.translate(-4,0);if(c28<b){b=c28;n=-64;}if(c27<b){b=c27;n=-65;}if(c36<b){b=c36;n=-53;}if(c38<b){b=c38;n=-51;}if(c37<b){b=c37;n=-52;}if(c46<b){b=c46;n=-40;}if(c48<b){b=c48;n=-38;}if(c47<b){b=c47;n=-39;}break;
+        case -4:b=c62;n=-18;current=me.translate(0,-4);if(c82<b){b=c82;n=8;}if(c72<b){b=c72;n=-5;}if(c63<b){b=c63;n=-17;}if(c83<b){b=c83;n=9;}if(c73<b){b=c73;n=-4;}if(c64<b){b=c64;n=-16;}if(c84<b){b=c84;n=10;}if(c74<b){b=c74;n=-3;}break;
+        case 4:b=c6c;n=-8;current=me.translate(0,4);if(c8c<b){b=c8c;n=18;}if(c7c<b){b=c7c;n=5;}if(c6b<b){b=c6b;n=-9;}if(c8b<b){b=c8b;n=17;}if(c7b<b){b=c7b;n=4;}if(c6a<b){b=c6a;n=-10;}if(c8a<b){b=c8a;n=16;}if(c7a<b){b=c7a;n=3;}break;
+        case 52:b=cc6;n=64;current=me.translate(4,0);if(cc8<b){b=cc8;n=66;}if(cc7<b){b=cc7;n=65;}if(cb6<b){b=cb6;n=51;}if(cb8<b){b=cb8;n=53;}if(cb7<b){b=cb7;n=52;}if(ca6<b){b=ca6;n=38;}if(ca8<b){b=ca8;n=40;}if(ca7<b){b=ca7;n=39;}break;
+        case -41:b=c34;n=-55;current=me.translate(-3,-2);if(c35<b){b=c35;n=-54;}if(c44<b){b=c44;n=-42;}if(c36<b){b=c36;n=-53;}if(c45<b){b=c45;n=-41;}if(c54<b){b=c54;n=-29;}if(c46<b){b=c46;n=-40;}if(c55<b){b=c55;n=-28;}if(c56<b){b=c56;n=-27;}break;
+        case -37:b=c3a;n=-49;current=me.translate(-3,2);if(c39<b){b=c39;n=-50;}if(c4a<b){b=c4a;n=-36;}if(c38<b){b=c38;n=-51;}if(c49<b){b=c49;n=-37;}if(c5a<b){b=c5a;n=-23;}if(c48<b){b=c48;n=-38;}if(c59<b){b=c59;n=-24;}if(c58<b){b=c58;n=-25;}break;
+        case -29:b=c43;n=-43;current=me.translate(-2,-3);if(c53<b){b=c53;n=-30;}if(c44<b){b=c44;n=-42;}if(c63<b){b=c63;n=-17;}if(c45<b){b=c45;n=-41;}if(c54<b){b=c54;n=-29;}if(c64<b){b=c64;n=-16;}if(c55<b){b=c55;n=-28;}if(c65<b){b=c65;n=-15;}break;
+        case -23:b=c4b;n=-35;current=me.translate(-2,3);if(c5b<b){b=c5b;n=-22;}if(c4a<b){b=c4a;n=-36;}if(c6b<b){b=c6b;n=-9;}if(c49<b){b=c49;n=-37;}if(c5a<b){b=c5a;n=-23;}if(c6a<b){b=c6a;n=-10;}if(c59<b){b=c59;n=-24;}if(c69<b){b=c69;n=-11;}break;
+        case 23:b=ca3;n=35;current=me.translate(2,-3);if(c93<b){b=c93;n=22;}if(ca4<b){b=ca4;n=36;}if(c83<b){b=c83;n=9;}if(c94<b){b=c94;n=23;}if(ca5<b){b=ca5;n=37;}if(c84<b){b=c84;n=10;}if(c95<b){b=c95;n=24;}if(c85<b){b=c85;n=11;}break;
+        case 29:b=cab;n=43;current=me.translate(2,3);if(c9b<b){b=c9b;n=30;}if(caa<b){b=caa;n=42;}if(c8b<b){b=c8b;n=17;}if(c9a<b){b=c9a;n=29;}if(ca9<b){b=ca9;n=41;}if(c8a<b){b=c8a;n=16;}if(c99<b){b=c99;n=28;}if(c89<b){b=c89;n=15;}break;
+        case 37:b=cb4;n=49;current=me.translate(3,-2);if(cb5<b){b=cb5;n=50;}if(ca4<b){b=ca4;n=36;}if(cb6<b){b=cb6;n=51;}if(c94<b){b=c94;n=23;}if(ca5<b){b=ca5;n=37;}if(ca6<b){b=ca6;n=38;}if(c95<b){b=c95;n=24;}if(c96<b){b=c96;n=25;}break;
+        case 41:b=cba;n=55;current=me.translate(3,2);if(cb9<b){b=cb9;n=54;}if(caa<b){b=caa;n=42;}if(cb8<b){b=cb8;n=53;}if(c9a<b){b=c9a;n=29;}if(ca9<b){b=ca9;n=41;}if(ca8<b){b=ca8;n=40;}if(c99<b){b=c99;n=28;}if(c98<b){b=c98;n=27;}break;
+        case -40:b=c35;n=-54;current=me.translate(-3,-1);if(c36<b){b=c36;n=-53;}if(c37<b){b=c37;n=-52;}if(c45<b){b=c45;n=-41;}if(c46<b){b=c46;n=-40;}if(c47<b){b=c47;n=-39;}if(c55<b){b=c55;n=-28;}if(c56<b){b=c56;n=-27;}if(c57<b){b=c57;n=-26;}break;
+        case -38:b=c39;n=-50;current=me.translate(-3,1);if(c38<b){b=c38;n=-51;}if(c37<b){b=c37;n=-52;}if(c49<b){b=c49;n=-37;}if(c48<b){b=c48;n=-38;}if(c47<b){b=c47;n=-39;}if(c59<b){b=c59;n=-24;}if(c58<b){b=c58;n=-25;}if(c57<b){b=c57;n=-26;}break;
+        case -16:b=c53;n=-30;current=me.translate(-1,-3);if(c63<b){b=c63;n=-17;}if(c73<b){b=c73;n=-4;}if(c54<b){b=c54;n=-29;}if(c64<b){b=c64;n=-16;}if(c74<b){b=c74;n=-3;}if(c55<b){b=c55;n=-28;}if(c65<b){b=c65;n=-15;}if(c75<b){b=c75;n=-2;}break;
+        case -10:b=c5b;n=-22;current=me.translate(-1,3);if(c6b<b){b=c6b;n=-9;}if(c7b<b){b=c7b;n=4;}if(c5a<b){b=c5a;n=-23;}if(c6a<b){b=c6a;n=-10;}if(c7a<b){b=c7a;n=3;}if(c59<b){b=c59;n=-24;}if(c69<b){b=c69;n=-11;}if(c79<b){b=c79;n=2;}break;
+        case 10:b=c93;n=22;current=me.translate(1,-3);if(c83<b){b=c83;n=9;}if(c73<b){b=c73;n=-4;}if(c94<b){b=c94;n=23;}if(c84<b){b=c84;n=10;}if(c74<b){b=c74;n=-3;}if(c95<b){b=c95;n=24;}if(c85<b){b=c85;n=11;}if(c75<b){b=c75;n=-2;}break;
+        case 16:b=c9b;n=30;current=me.translate(1,3);if(c8b<b){b=c8b;n=17;}if(c7b<b){b=c7b;n=4;}if(c9a<b){b=c9a;n=29;}if(c8a<b){b=c8a;n=16;}if(c7a<b){b=c7a;n=3;}if(c99<b){b=c99;n=28;}if(c89<b){b=c89;n=15;}if(c79<b){b=c79;n=2;}break;
+        case 38:b=cb5;n=50;current=me.translate(3,-1);if(cb6<b){b=cb6;n=51;}if(cb7<b){b=cb7;n=52;}if(ca5<b){b=ca5;n=37;}if(ca6<b){b=ca6;n=38;}if(ca7<b){b=ca7;n=39;}if(c95<b){b=c95;n=24;}if(c96<b){b=c96;n=25;}if(c97<b){b=c97;n=26;}break;
+        case 40:b=cb9;n=54;current=me.translate(3,1);if(cb8<b){b=cb8;n=53;}if(cb7<b){b=cb7;n=52;}if(ca9<b){b=ca9;n=41;}if(ca8<b){b=ca8;n=40;}if(ca7<b){b=ca7;n=39;}if(c99<b){b=c99;n=28;}if(c98<b){b=c98;n=27;}if(c97<b){b=c97;n=26;}break;
+        case -39:b=c36;n=-53;current=me.translate(-3,0);if(c38<b){b=c38;n=-51;}if(c37<b){b=c37;n=-52;}if(c46<b){b=c46;n=-40;}if(c48<b){b=c48;n=-38;}if(c47<b){b=c47;n=-39;}if(c56<b){b=c56;n=-27;}if(c58<b){b=c58;n=-25;}if(c57<b){b=c57;n=-26;}break;
+        case -3:b=c63;n=-17;current=me.translate(0,-3);if(c83<b){b=c83;n=9;}if(c73<b){b=c73;n=-4;}if(c64<b){b=c64;n=-16;}if(c84<b){b=c84;n=10;}if(c74<b){b=c74;n=-3;}if(c65<b){b=c65;n=-15;}if(c85<b){b=c85;n=11;}if(c75<b){b=c75;n=-2;}break;
+        case 3:b=c6b;n=-9;current=me.translate(0,3);if(c8b<b){b=c8b;n=17;}if(c7b<b){b=c7b;n=4;}if(c6a<b){b=c6a;n=-10;}if(c8a<b){b=c8a;n=16;}if(c7a<b){b=c7a;n=3;}if(c69<b){b=c69;n=-11;}if(c89<b){b=c89;n=15;}if(c79<b){b=c79;n=2;}break;
+        case 39:b=cb6;n=51;current=me.translate(3,0);if(cb8<b){b=cb8;n=53;}if(cb7<b){b=cb7;n=52;}if(ca6<b){b=ca6;n=38;}if(ca8<b){b=ca8;n=40;}if(ca7<b){b=ca7;n=39;}if(c96<b){b=c96;n=25;}if(c98<b){b=c98;n=27;}if(c97<b){b=c97;n=26;}break;
+        case -28:b=c44;n=-42;current=me.translate(-2,-2);if(c45<b){b=c45;n=-41;}if(c54<b){b=c54;n=-29;}if(c46<b){b=c46;n=-40;}if(c64<b){b=c64;n=-16;}if(c55<b){b=c55;n=-28;}if(c56<b){b=c56;n=-27;}if(c65<b){b=c65;n=-15;}if(c66<b){b=c66;n=-14;}break;
+        case -24:b=c4a;n=-36;current=me.translate(-2,2);if(c49<b){b=c49;n=-37;}if(c5a<b){b=c5a;n=-23;}if(c48<b){b=c48;n=-38;}if(c6a<b){b=c6a;n=-10;}if(c59<b){b=c59;n=-24;}if(c58<b){b=c58;n=-25;}if(c69<b){b=c69;n=-11;}if(c68<b){b=c68;n=-12;}break;
+        case 24:b=ca4;n=36;current=me.translate(2,-2);if(c94<b){b=c94;n=23;}if(ca5<b){b=ca5;n=37;}if(c84<b){b=c84;n=10;}if(ca6<b){b=ca6;n=38;}if(c95<b){b=c95;n=24;}if(c85<b){b=c85;n=11;}if(c96<b){b=c96;n=25;}if(c86<b){b=c86;n=12;}break;
+        case 28:b=caa;n=42;current=me.translate(2,2);if(c9a<b){b=c9a;n=29;}if(ca9<b){b=ca9;n=41;}if(c8a<b){b=c8a;n=16;}if(ca8<b){b=ca8;n=40;}if(c99<b){b=c99;n=28;}if(c89<b){b=c89;n=15;}if(c98<b){b=c98;n=27;}if(c88<b){b=c88;n=14;}break;
+        case -27:b=c45;n=-41;current=me.translate(-2,-1);if(c46<b){b=c46;n=-40;}if(c47<b){b=c47;n=-39;}if(c55<b){b=c55;n=-28;}if(c56<b){b=c56;n=-27;}if(c65<b){b=c65;n=-15;}if(c57<b){b=c57;n=-26;}if(c66<b){b=c66;n=-14;}if(c67<b){b=c67;n=-13;}break;
+        case -25:b=c49;n=-37;current=me.translate(-2,1);if(c48<b){b=c48;n=-38;}if(c47<b){b=c47;n=-39;}if(c59<b){b=c59;n=-24;}if(c58<b){b=c58;n=-25;}if(c69<b){b=c69;n=-11;}if(c57<b){b=c57;n=-26;}if(c68<b){b=c68;n=-12;}if(c67<b){b=c67;n=-13;}break;
+        case -15:b=c54;n=-29;current=me.translate(-1,-2);if(c64<b){b=c64;n=-16;}if(c74<b){b=c74;n=-3;}if(c55<b){b=c55;n=-28;}if(c56<b){b=c56;n=-27;}if(c65<b){b=c65;n=-15;}if(c75<b){b=c75;n=-2;}if(c66<b){b=c66;n=-14;}if(c76<b){b=c76;n=-1;}break;
+        case -11:b=c5a;n=-23;current=me.translate(-1,2);if(c6a<b){b=c6a;n=-10;}if(c7a<b){b=c7a;n=3;}if(c59<b){b=c59;n=-24;}if(c58<b){b=c58;n=-25;}if(c69<b){b=c69;n=-11;}if(c79<b){b=c79;n=2;}if(c68<b){b=c68;n=-12;}if(c78<b){b=c78;n=1;}break;
+        case 11:b=c94;n=23;current=me.translate(1,-2);if(c84<b){b=c84;n=10;}if(c74<b){b=c74;n=-3;}if(c95<b){b=c95;n=24;}if(c85<b){b=c85;n=11;}if(c96<b){b=c96;n=25;}if(c75<b){b=c75;n=-2;}if(c86<b){b=c86;n=12;}if(c76<b){b=c76;n=-1;}break;
+        case 15:b=c9a;n=29;current=me.translate(1,2);if(c8a<b){b=c8a;n=16;}if(c7a<b){b=c7a;n=3;}if(c99<b){b=c99;n=28;}if(c89<b){b=c89;n=15;}if(c98<b){b=c98;n=27;}if(c79<b){b=c79;n=2;}if(c88<b){b=c88;n=14;}if(c78<b){b=c78;n=1;}break;
+        case 25:b=ca5;n=37;current=me.translate(2,-1);if(ca6<b){b=ca6;n=38;}if(ca7<b){b=ca7;n=39;}if(c95<b){b=c95;n=24;}if(c85<b){b=c85;n=11;}if(c96<b){b=c96;n=25;}if(c97<b){b=c97;n=26;}if(c86<b){b=c86;n=12;}if(c87<b){b=c87;n=13;}break;
+        case 27:b=ca9;n=41;current=me.translate(2,1);if(ca8<b){b=ca8;n=40;}if(ca7<b){b=ca7;n=39;}if(c99<b){b=c99;n=28;}if(c89<b){b=c89;n=15;}if(c98<b){b=c98;n=27;}if(c97<b){b=c97;n=26;}if(c88<b){b=c88;n=14;}if(c87<b){b=c87;n=13;}break;
+        case -26:b=c46;n=-40;current=me.translate(-2,0);if(c48<b){b=c48;n=-38;}if(c47<b){b=c47;n=-39;}if(c56<b){b=c56;n=-27;}if(c58<b){b=c58;n=-25;}if(c57<b){b=c57;n=-26;}if(c66<b){b=c66;n=-14;}if(c68<b){b=c68;n=-12;}if(c67<b){b=c67;n=-13;}break;
+        case -2:b=c64;n=-16;current=me.translate(0,-2);if(c84<b){b=c84;n=10;}if(c74<b){b=c74;n=-3;}if(c65<b){b=c65;n=-15;}if(c85<b){b=c85;n=11;}if(c75<b){b=c75;n=-2;}if(c66<b){b=c66;n=-14;}if(c86<b){b=c86;n=12;}if(c76<b){b=c76;n=-1;}break;
+        case 2:b=c6a;n=-10;current=me.translate(0,2);if(c8a<b){b=c8a;n=16;}if(c7a<b){b=c7a;n=3;}if(c69<b){b=c69;n=-11;}if(c89<b){b=c89;n=15;}if(c79<b){b=c79;n=2;}if(c68<b){b=c68;n=-12;}if(c88<b){b=c88;n=14;}if(c78<b){b=c78;n=1;}break;
+        case 26:b=ca6;n=38;current=me.translate(2,0);if(ca8<b){b=ca8;n=40;}if(ca7<b){b=ca7;n=39;}if(c96<b){b=c96;n=25;}if(c98<b){b=c98;n=27;}if(c97<b){b=c97;n=26;}if(c86<b){b=c86;n=12;}if(c88<b){b=c88;n=14;}if(c87<b){b=c87;n=13;}break;
+        case -14:b=c55;n=-28;current=me.translate(-1,-1);if(c56<b){b=c56;n=-27;}if(c65<b){b=c65;n=-15;}if(c57<b){b=c57;n=-26;}if(c75<b){b=c75;n=-2;}if(c66<b){b=c66;n=-14;}if(c67<b){b=c67;n=-13;}if(c76<b){b=c76;n=-1;}break;
+        case -12:b=c59;n=-24;current=me.translate(-1,1);if(c58<b){b=c58;n=-25;}if(c69<b){b=c69;n=-11;}if(c57<b){b=c57;n=-26;}if(c79<b){b=c79;n=2;}if(c68<b){b=c68;n=-12;}if(c67<b){b=c67;n=-13;}if(c78<b){b=c78;n=1;}break;
+        case 12:b=c95;n=24;current=me.translate(1,-1);if(c85<b){b=c85;n=11;}if(c96<b){b=c96;n=25;}if(c75<b){b=c75;n=-2;}if(c97<b){b=c97;n=26;}if(c86<b){b=c86;n=12;}if(c76<b){b=c76;n=-1;}if(c87<b){b=c87;n=13;}break;
+        case 14:b=c99;n=28;current=me.translate(1,1);if(c89<b){b=c89;n=15;}if(c98<b){b=c98;n=27;}if(c79<b){b=c79;n=2;}if(c97<b){b=c97;n=26;}if(c88<b){b=c88;n=14;}if(c78<b){b=c78;n=1;}if(c87<b){b=c87;n=13;}break;
+        case -13:b=c56;n=-27;current=me.translate(-1,0);if(c58<b){b=c58;n=-25;}if(c57<b){b=c57;n=-26;}if(c66<b){b=c66;n=-14;}if(c68<b){b=c68;n=-12;}if(c67<b){b=c67;n=-13;}if(c76<b){b=c76;n=-1;}if(c78<b){b=c78;n=1;}break;
+        case -1:b=c65;n=-15;current=me.translate(0,-1);if(c85<b){b=c85;n=11;}if(c75<b){b=c75;n=-2;}if(c66<b){b=c66;n=-14;}if(c86<b){b=c86;n=12;}if(c67<b){b=c67;n=-13;}if(c76<b){b=c76;n=-1;}if(c87<b){b=c87;n=13;}break;
+        case 1:b=c69;n=-11;current=me.translate(0,1);if(c89<b){b=c89;n=15;}if(c79<b){b=c79;n=2;}if(c68<b){b=c68;n=-12;}if(c88<b){b=c88;n=14;}if(c67<b){b=c67;n=-13;}if(c78<b){b=c78;n=1;}if(c87<b){b=c87;n=13;}break;
+        case 13:b=c96;n=25;current=me.translate(1,0);if(c98<b){b=c98;n=27;}if(c97<b){b=c97;n=26;}if(c86<b){b=c86;n=12;}if(c88<b){b=c88;n=14;}if(c76<b){b=c76;n=-1;}if(c78<b){b=c78;n=1;}if(c87<b){b=c87;n=13;}break;
+        case 0:b=c66;n=-14;current=me.translate(0,0);if(c68<b){b=c68;n=-12;}if(c86<b){b=c86;n=12;}if(c88<b){b=c88;n=14;}if(c67<b){b=c67;n=-13;}if(c76<b){b=c76;n=-1;}if(c78<b){b=c78;n=1;}if(c87<b){b=c87;n=13;}break;
+        default:break outer;}
+        if(prev!=null) rc.setIndicatorLine(prev, current, 0, 255, 255);
+        prev=current;
         }
-        */
+
+        //end navpretty
+        lastNavEndpoint=prev;
+        lastMoveTowardTarget = to;
+        
+        int b6 = Clock.getBytecodeNum();
+        rc.setIndicatorString("init "+(b1-b0)+" r "+(b2-b1)+" i "+(b3-b2) + " i2 "+(b4-b3)+" m "+(b5-b4)+" f "+(b6-b5));
     }
 }
