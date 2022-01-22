@@ -4,11 +4,20 @@ Macro:
 2) Soldiers should explore instead of miners, miners should just mine.
 3) Soldiers should go towards contested lead depos instead of archons
 
-Miner micro:
-Miners should mine the last lead if it's under enemy control.
-Miners should retreat if attacked and no friendly soldiers around
+Miner micro: DONE
+(1) Miners should mine the last lead if it's under enemy control.
+(2) Miners should retreat if attacked and no friendly soldiers around
 
 Soldier micro:
 (1) While holding, low HP soldiers should retreat and high HP soldiers should advance
+(2) if 1v1 vs enemy soldier, always go on the offense unless on lowground
 
-if 1v1 vs enemy soldier, always go on the offense unless on lowground
+
+public Throwable getCause()
+Returns the cause of this throwable or null if the cause is nonexistent or unknown. (The cause is the throwable that caused this throwable to get thrown.)
+This implementation returns the cause that was supplied via one of the constructors requiring a Throwable, or that was set after creation with the initCause(Throwable) method. While it is typically unnecessary to override this method, a subclass can override it to return a cause set by some other means. This is appropriate for a "legacy chained throwable" that predates the addition of chained exceptions to Throwable. Note that it is not necessary to override any of the PrintStackTrace methods, all of which invoke the getCause method to determine the cause of a throwable.
+Returns:
+the cause of this throwable or null if the cause is nonexistent or unknown.
+Since:
+1.4
+  < 1.8 > (rt.jar)

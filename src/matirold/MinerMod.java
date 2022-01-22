@@ -1,4 +1,4 @@
-package matir;
+package matirold;
 
 import battlecode.common.*;
 
@@ -235,7 +235,7 @@ public class MinerMod extends Robot {
                 default:
             }
         }
-        MapLocation nearestEnemy = getNearestEnemyChunk();
+        MapLocation nearestEnemy = getNearestEnemySoldierChunk();
         if(nearestEnemy != null && rc.getLocation().distanceSquaredTo(nearestEnemy) < 36) {
             Direction d = nearestEnemy.directionTo(rc.getLocation());
             m1 = m1.add(d).add(d).add(d);
@@ -289,7 +289,7 @@ public class MinerMod extends Robot {
         if(recentLoc ==null) recentLoc = rc.getLocation();
 
         MapLocation unexplored = getNearestUnexploredChunk(rc.getLocation().add(recentLoc.directionTo(rc.getLocation())));
-        MapLocation nearestEnemy = getNearestEnemyChunk();
+        MapLocation nearestEnemy = getNearestEnemySoldierChunk();
         if(nearestEnemy!=null && rc.getLocation().distanceSquaredTo(nearestEnemy) > 100)
             nearestEnemy = null;
         rc.setIndicatorLine(rc.getLocation(), unexplored, 0, 255, 0);

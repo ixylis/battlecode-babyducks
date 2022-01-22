@@ -1,12 +1,12 @@
-package matir;
+package matirold;
 
 import battlecode.common.*;
 
 import static battlecode.common.RobotType.SOLDIER;
 import static battlecode.common.RobotType.WATCHTOWER;
 
-public class SoldierMod extends Robot {
-    SoldierMod(RobotController r) throws GameActionException {
+public class Soldier extends Robot {
+    Soldier(RobotController r) throws GameActionException {
         super(r);
     }
     private MapLocation movementTarget = null;
@@ -20,7 +20,7 @@ public class SoldierMod extends Robot {
         if(rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION +rc.getRoundNum()% NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
 
     }
     /*
@@ -88,16 +88,17 @@ public class SoldierMod extends Robot {
             MapLocation option1 = from.add(d);
             MapLocation option2 = from.add(d.rotateLeft());
             MapLocation option3 = from.add(d.rotateRight());
+            int rubble0 = rc.senseRubble(from) * 2 + 10; // stay put if cost would more than double
             int rubble1 = rc.canSenseLocation(option1)? rc.senseRubble(option1):100;
             int rubble2 = rc.canSenseLocation(option2)? rc.senseRubble(option2):100;
             int rubble3 = rc.canSenseLocation(option3)? rc.senseRubble(option3):100;
-            if(!toBeOccupied[option1.x - rc.getLocation().x + 5][option1.y - rc.getLocation().y + 5] && rubble1 <= rubble2 && rubble1 <= rubble3) {
+            if(!toBeOccupied[option1.x - rc.getLocation().x + 5][option1.y - rc.getLocation().y + 5] && rubble1 <= rubble2 && rubble1 <= rubble3 && rubble1 <= rubble0) {
                 to = option1;
                 rubbleTo = rubble1;
-            } else if(!toBeOccupied[option2.x - rc.getLocation().x + 5][option2.y - rc.getLocation().y + 5] && rubble2 <= rubble3) {
+            } else if(!toBeOccupied[option2.x - rc.getLocation().x + 5][option2.y - rc.getLocation().y + 5] && rubble2 <= rubble3 && rubble2 <= rubble0) {
                 to = option2;
                 rubbleTo = rubble2;
-            } else if(!toBeOccupied[option3.x - rc.getLocation().x + 5][option3.y - rc.getLocation().y + 5]) {
+            } else if(!toBeOccupied[option3.x - rc.getLocation().x + 5][option3.y - rc.getLocation().y + 5] && rubble3 <= rubble0) {
                 to = option3;
                 rubbleTo = rubble3;
             } else {
@@ -122,14 +123,15 @@ public class SoldierMod extends Robot {
             MapLocation option1 = from.add(d);
             MapLocation option2 = from.add(d.rotateLeft());
             MapLocation option3 = from.add(d.rotateRight());
+            int rubble0 = rc.senseRubble(from) * 2 + 10;
             int rubble1 = rc.canSenseLocation(option1)? rc.senseRubble(option1):100;
             int rubble2 = rc.canSenseLocation(option2)? rc.senseRubble(option2):100;
             int rubble3 = rc.canSenseLocation(option3)? rc.senseRubble(option3):100;
-            if(rubble1 <= rubble2 && rubble1 <= rubble3 && rc.canMove(d))
+            if(rubble1 <= rubble2 && rubble1 <= rubble3 && rubble1 <= rubble0 && rc.canMove(d))
                 toMove = d; //rc.move(d);
-            else if(rubble2 <= rubble3 && rc.canMove(d.rotateLeft()))
+            else if(rubble2 <= rubble3 && rubble2 <= rubble0 && rc.canMove(d.rotateLeft()))
                 toMove = d.rotateLeft(); //rc.move(d.rotateLeft());
-            else if(rc.canMove(d.rotateRight()))
+            else if(rubble3 <= rubble0 && rc.canMove(d.rotateRight()))
                 toMove = d.rotateRight(); //rc.move(d.rotateRight());
             //return true;
         }
@@ -156,7 +158,7 @@ public class SoldierMod extends Robot {
             //always look for low rubble retreats
             int myx = rc.getLocation().x;
             int myy = rc.getLocation().y;
-            double best = 9999;
+            double best = 10 + rc.senseRubble(rc.getLocation());
             Direction bestD = null;
             for(Direction d : Direction.allDirections()) {
                 MapLocation l = rc.getLocation().add(d);
@@ -219,78 +221,21 @@ public class SoldierMod extends Robot {
         if(micro())
             return;
 
-        /*old micro
-        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
-        boolean existsSoldier=false;
-        int enemySoldierCount=0;
-        int friendlySoldierCount=0;
-        int adjacentFriendlySoldierCount = 0;
-        MapLocation away=rc.getLocation();
-        MapLocation nearbyFriend = null;
-        for(RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam())) {
-            if(r.type == RobotType.SOLDIER) {
-                nearbyFriend = r.location;
-                friendlySoldierCount++;
-                if(r.location.distanceSquaredTo(rc.getLocation())<3)
-                    adjacentFriendlySoldierCount++;
-            }
-        }
-        if(enemies.length>0) {
-            for(RobotInfo r : enemies) {
-                if(r.type == RobotType.SOLDIER) {
-                    //find the lowest rubble tile you can move onto.
-                    existsSoldier = true;
-                    enemySoldierCount++;
-                    away=away.translate(rc.getLocation().x-r.location.x, rc.getLocation().y-r.location.y);
-                }
-            }
-            if(enemySoldierCount>friendlySoldierCount) {
-                moveToward(away);
-                return;
-            }
-            if(enemySoldierCount+1<adjacentFriendlySoldierCount) {
-                moveToward(enemies[0].location);
-                return;
-            }
-            if(existsSoldier && rc.isMovementReady()) {
-                int minRubble = rc.senseRubble(rc.getLocation());
-                Direction minRubbleDir = Direction.CENTER;
-                for(Direction d : Robot.directions) {
-                    int rubble = rc.senseRubble(rc.getLocation().add(d));
-                    if(rubble < minRubble && rc.canMove(d)) {
-                        minRubble = rubble;
-                        minRubbleDir = d;
-                    }
-                }
-                if(minRubbleDir != Direction.CENTER) {
-                    rc.move(minRubbleDir);
-                    return;
-                }
-            }
-            if(!existsSoldier) {
-                moveToward(enemies[0].location);
-                return;
-            }
-        } else { */
         if(movementTarget!=null && rc.canSenseLocation(movementTarget))
             movementTarget=null;
-        MapLocation x = super.getNearestEnemyChunk();
-        if(x!=null) movementTarget=x;
-        if(x == null && getRandomKnownEnemyHQ() != null)
-            movementTarget = getRandomPossibleEnemyHQ();
-        if(movementTarget == null)
-            movementTarget = getNearestGoodLocation(myLoc);
+        MapLocation y = getNearestEnemyMinerChunk();
+        MapLocation x = getNearestEnemySoldierChunk();
+        if(x == null) movementTarget = y;
+        else if (y == null) movementTarget = x;
+        else {
+            movementTarget = myLoc.distanceSquaredTo(x) < myLoc.distanceSquaredTo(y)
+                    ? x : y;
+        }
         if(movementTarget==null)
             movementTarget = super.getRandomKnownEnemyHQ();
         if(movementTarget==null)
             movementTarget = super.getRandomPossibleEnemyHQ();
         moveToward(movementTarget);
-            /*
-            if(rc.getLocation().distanceSquaredTo(movementTarget)>64 || adjacentFriendlySoldierCount>0)
-                moveToward(movementTarget);
-            else {
-                moveToward(nearbyFriend);
-            }*/
     }
     public void attack() throws GameActionException {
         int radius = rc.getType().actionRadiusSquared;

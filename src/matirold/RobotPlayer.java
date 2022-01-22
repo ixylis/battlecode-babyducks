@@ -1,4 +1,4 @@
-package matir;
+package matirold;
 
 import battlecode.common.GameActionException;
 import battlecode.common.RobotController;
@@ -31,7 +31,6 @@ public strictfp class RobotPlayer {
         case ARCHON: new Archon(rc).run();
         case BUILDER: new Builder(rc).run();
         case WATCHTOWER: new Watchtower(rc).run();
-        case SAGE: new Sage(rc).run();
         default:
             break;
         }

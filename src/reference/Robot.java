@@ -210,7 +210,7 @@ public abstract class Robot {
         int[] enemySoldierChunks = new int[NUM_ENEMY_SOLDIER_CHUNKS];
         
         for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
-            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+i));
+            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION+i));
             int x = rc.readSharedArray(INDEX_ENEMY_LOCATION+i);
             enemySoldierChunks[i] = x&0xff;
             
