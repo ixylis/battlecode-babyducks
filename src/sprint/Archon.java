@@ -156,11 +156,18 @@ public class Archon extends Robot {
                     rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)));
         }
         // heal nearby units if we haven't done anything else
+        // priority: repair units closest to max health
         if (rc.getActionCooldownTurns() == 0) {
+            MapLocation bestLocation = null;
+            int bestHealth = 0;
             for (RobotInfo robot : rc.senseNearbyRobots(RobotType.ARCHON.actionRadiusSquared, rc.getTeam())) {
-                if (robot.health < robot.type.health && rc.canRepair(robot.location))
-                    rc.repair(robot.location);
+                if (robot.health < robot.type.health && robot.health > bestHealth) {
+                    bestLocation = robot.location;
+                    bestHealth = robot.health;
+                }
             }
+            if (bestLocation != null && rc.canRepair(bestLocation))
+                rc.repair(bestLocation);
         }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
