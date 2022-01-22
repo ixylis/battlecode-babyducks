@@ -1,12 +1,8 @@
-package matir;
+package matirold;
 
 import battlecode.common.*;
 
-import static battlecode.common.AnomalyType.CHARGE;
-import static battlecode.common.AnomalyType.FURY;
 import static battlecode.common.RobotType.*;
-import static java.lang.Math.PI;
-import static java.lang.Math.max;
 
 public class Sage extends Robot {
     Sage(RobotController r) throws GameActionException {
@@ -22,7 +18,7 @@ public class Sage extends Robot {
             attack();
         else
             super.updateEnemySoliderLocations();
-        if (rc.isMovementReady()) movement();
+        if (rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
         rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
@@ -75,7 +71,7 @@ public class Sage extends Robot {
             if (nearest == null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
                 nearest = r.location;
         }
-        int nearestInfDistance = max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
+        int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
 
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
@@ -83,7 +79,6 @@ public class Sage extends Robot {
          * declare that spot 'occupied by friendly forces'
          */
         Direction toMove = null;
-
         int myAdvanceStrength = 0;
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
@@ -114,7 +109,7 @@ public class Sage extends Robot {
                 to = from;
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
-            if (max(Math.abs(to.x - rc.getLocation().x), Math.abs(to.y - rc.getLocation().y)) <= 3)
+            if (Math.max(Math.abs(to.x - rc.getLocation().x), Math.abs(to.y - rc.getLocation().y)) <= 3)
                 myAdvanceStrength += 1000 / (10 + rubbleTo) * 10 / (10 + rc.senseRubble(r.location));
         }
         //now time to calculate the enemy strength
@@ -131,7 +126,7 @@ public class Sage extends Robot {
             MapLocation option1 = from.add(d);
             MapLocation option2 = from.add(d.rotateLeft());
             MapLocation option3 = from.add(d.rotateRight());
-            int rubble0 = rc.senseRubble(from);
+            int rubble0 = rc.senseRubble(from) * 2 + 10;
             int rubble1 = rc.canSenseLocation(option1) ? rc.senseRubble(option1) : 100;
             int rubble2 = rc.canSenseLocation(option2) ? rc.senseRubble(option2) : 100;
             int rubble3 = rc.canSenseLocation(option3) ? rc.senseRubble(option3) : 100;
@@ -143,14 +138,14 @@ public class Sage extends Robot {
                 toMove = d.rotateRight(); //rc.move(d.rotateRight());
             //return true;
         }
-        if (!(toMove != null && enemyAdvanceStrength * 2 < myAdvanceStrength + 1000 / (10 + rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns() < 8)) {
+        if (!(toMove != null && enemyAdvanceStrength * 1.5 < myAdvanceStrength + 1000 / (10 + rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns() < 8)) {
             toMove = null; //don't advance if condition isn't met.
         }
         int myHoldStrength = 0;
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
                 continue;
-            int infDist = max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
+            int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if (infDist <= nearestInfDistance)
                 myHoldStrength += 1000 / (10 + rc.senseRubble(r.location));
         }
@@ -158,10 +153,10 @@ public class Sage extends Robot {
         for (RobotInfo r : enemies) {
             if (r.type == RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
                 continue;
-            if (max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
+            if (Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
                 enemyHoldStrength += 1000 / (10 + rc.senseRubble(r.location));
         }
-        if (toMove == null && (myHoldStrength < enemyHoldStrength * 1.2 || (!rc.isActionReady() && enemyHoldStrength > 0))) {
+        if (toMove == null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
             //retreat
             //always look for low rubble retreats
             int myx = rc.getLocation().x;
@@ -208,37 +203,8 @@ public class Sage extends Robot {
     }
 
     private void movement() throws GameActionException {
-        /* if (rc.isActionReady()) {
-            RobotInfo[] enemies = rc.senseNearbyRobots(SAGE.visionRadiusSquared,
-                    rc.getTeam().opponent());
-
-            boolean[] enemyAfterMove = new boolean[8];
-            int moveable = 0;
-
-            for (Direction dir : Direction.cardinalDirections()) {
-                for (RobotInfo enemy : enemies) {
-                    if (enemy.location.distanceSquaredTo(
-                            myLoc.add(dir)) < SAGE.actionRadiusSquared) {
-                        enemyAfterMove[dir.ordinal()] = true;
-                        moveable++;
-                        break;
-                    }
-                }
-            }
-            if(moveable > 0) {
-                Direction[] valid = new Direction[moveable];
-                int i = 0;
-                for(int j = 0; j < moveable; j++) {
-                    while(!enemyAfterMove[i]) i++;
-                    valid[j] = Direction.cardinalDirections()[i];
-                }
-
-                moveInDirection(randDirByWeight(valid, rubbleWeight));
-                return;
-            }
-        } */
-
-        if (micro()) return;
+        if (micro())
+            return;
 
         if (movementTarget != null && rc.canSenseLocation(movementTarget))
             movementTarget = null;
@@ -252,78 +218,43 @@ public class Sage extends Robot {
     }
 
     public void attack() throws GameActionException {
-        if (!rc.isActionReady()) return;
         int radius = SAGE.actionRadiusSquared;
         Team opponent = rc.getTeam().opponent();
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if (enemies.length == 0) return;
-        int droidVal = 0, buildingVal = 0;
-        int maxHP;
         RobotInfo bestTarget = enemies[0];
-
         for (RobotInfo rb : enemies) {
-            maxHP = rb.type.getMaxHealth(rb.level);
-            if (rb.type.isBuilding()) {
-                if (rb.type == ARCHON) {
-                    buildingVal += rb.health < (maxHP * 0.10) ?
-                            rb.health + 100 : maxHP * 0.01;
-                } else {
-                    buildingVal += rb.health < (maxHP * 0.10) ?
-                            rb.health + 15 : maxHP * 0.1;
-                }
-            } else {
-                droidVal += rb.health < (maxHP * 0.22)
-                        ? rb.health + 15 : maxHP * 0.22;
-            }
-            if (bestTarget.health <= SAGE.damage) {
-                if (rb.health <= SAGE.damage) {
-                    if (rb.health > bestTarget.health) {
+            if(bestTarget.health < SAGE.damage) {
+                if(rb.health < SAGE.damage) {
+                    if(rb.health > bestTarget.health) {
                         bestTarget = rb;
                     }
                 }
             } else {
-                if (rb.health < SAGE.damage) {
+                if(rb.health < SAGE.damage) {
                     bestTarget = rb;
                 } else {
-                    if (isAttacker(bestTarget)) {
-                        if (isAttacker(rb)) {
-                            if (rb.health < bestTarget.health)
-                                bestTarget = rb;
-                        }
-                    } else {
-                        if (isAttacker(rb)) {
-                            bestTarget = rb;
+                    if(rb.health < bestTarget.health) {
+                        if(isAttacker(bestTarget)) {
+                            if (isAttacker(rb)) {
+                                if (rb.health < bestTarget.health)
+                                    bestTarget = rb;
+                            }
                         } else {
-                            if (rb.health < bestTarget.health)
+                            if(isAttacker(rb)) {
                                 bestTarget = rb;
+                            } else {
+                                if (rb.health < bestTarget.health)
+                                    bestTarget = rb;
+                            }
                         }
                     }
                 }
             }
         }
-
-        int hitval = (bestTarget.health <= SAGE.damage) ?
-                bestTarget.health + 15 : SAGE.damage;
-
-        if(hitval >= max(droidVal, buildingVal)) {
-            if (rc.canAttack(bestTarget.location))
-                rc.attack(bestTarget.location);
-
-            return;
-        }
-
-        if(droidVal >= buildingVal) {
-            if(rc.canEnvision(CHARGE))
-                rc.envision(CHARGE);
-
-            return;
-        }
-
-        if(rc.canEnvision(FURY)) {
-            rc.envision(FURY);
-        }
+        if (rc.canAttack(bestTarget.location))
+            rc.attack(bestTarget.location);
     }
 }
-
 
 

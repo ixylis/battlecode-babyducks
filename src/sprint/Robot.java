@@ -19,9 +19,6 @@ public abstract class Robot {
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
     public static final double HEALTH_FACTOR = 0.2;
-    public static final int INDEX_HQBAD = 55;
-    public static final int INDEX_RELOCATE = 63;
-
     MapLocation myLoc;
     MapLocation[] corners;
 
@@ -85,7 +82,6 @@ public abstract class Robot {
 //        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
 //        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
 //        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
-        myLoc = rc.getLocation();
     }
 
     MapLocation[] recentLocations=new MapLocation[10];
@@ -100,16 +96,6 @@ public abstract class Robot {
                     recentLocationsIndex = (recentLocationsIndex + 1)%10;
                     recentLocations[recentLocationsIndex] = rc.getLocation();
                     lastMoveTurn = rc.getRoundNum();
-                }
-                if(DEBUG) {
-                    MapLocation last = rc.getLocation();
-                    for(int i=recentLocationsIndex+9;i>recentLocationsIndex;i--) {
-                        if(recentLocations[i%10]!=null) {
-                            MapLocation next = recentLocations[i%10];
-                            rc.setIndicatorLine(last, next, 255, 0, 0);
-                            last=next;
-                        }
-                    }
                 }
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
@@ -159,10 +145,11 @@ public abstract class Robot {
         }
         return bestD;
     }
-    int frustration=10;
+
+    int frustration=0;
     MapLocation lastMoveTowardTarget;
     public void moveToward(MapLocation to) throws GameActionException {
-        if(anthony.Robot.DEBUG) {
+        if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
         }
@@ -619,77 +606,6 @@ public abstract class Robot {
         if((x3 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
 
         return best;
-    }
-    void displayUnexploredChunks() throws GameActionException {
-        int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
-        int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
-        int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
-        int x3 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3);
-        int mh = rc.getMapHeight(), mw = rc.getMapWidth();
-        if((x0 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*1/16), 0, 0, 255);
-        if((x0 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*3/16), 0, 0, 255);
-        if((x0 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*3/16), 0, 0, 255);
-        if((x1 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*5/16), 0, 0, 255);
-        if((x1 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*7/16), 0, 0, 255);
-        if((x1 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*7/16), 0, 0, 255);
-        if((x2 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*9/16), 0, 0, 255);
-        if((x2 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*11/16), 0, 0, 255);
-        if((x2 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*11/16), 0, 0, 255);
-        if((x3 & 0x1) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x2) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x4) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x8) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x10) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x20) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x40) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x80) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*13/16), 0, 0, 255);
-        if((x3 & 0x100) == 0) rc.setIndicatorDot(new MapLocation(mw*1/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x200) == 0) rc.setIndicatorDot(new MapLocation(mw*3/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x400) == 0) rc.setIndicatorDot(new MapLocation(mw*5/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x800) == 0) rc.setIndicatorDot(new MapLocation(mw*7/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x1000) == 0) rc.setIndicatorDot(new MapLocation(mw*9/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x2000) == 0) rc.setIndicatorDot(new MapLocation(mw*11/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x4000) == 0) rc.setIndicatorDot(new MapLocation(mw*13/16,mh*15/16), 0, 0, 255);
-        if((x3 & 0x8000) == 0) rc.setIndicatorDot(new MapLocation(mw*15/16,mh*15/16), 0, 0, 255);
     }
     void writeUnexploredChunk() throws GameActionException {
         MapLocation l = rc.getLocation();

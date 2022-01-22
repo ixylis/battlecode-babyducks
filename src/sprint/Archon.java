@@ -6,7 +6,8 @@ import java.util.ArrayList;
 
 import static battlecode.common.GameConstants.GAME_MAX_NUMBER_OF_ROUNDS;
 import static battlecode.common.RobotType.*;
-import static java.lang.Math.*;
+import static java.lang.Math.max;
+import static java.lang.Math.sqrt;
 
 public class Archon extends Robot {
     private int myHQIndex;
@@ -22,26 +23,18 @@ public class Archon extends Robot {
     private int vortexIndex = 0;
     private int income = 0;
     private int prevIncome = 0;
-    int totalHQ;
+
 
     Archon(RobotController r) throws GameActionException {
         super(r);
         int i;
-        double badness = (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
-                max(rc.getMapHeight() - myLoc.y - 1, myLoc.y));
-
-        for (i = 0; rc.readSharedArray(i + INDEX_MY_HQ) > 0 && i < 4; i++);
-        if (i < 4) {
+        for(i=INDEX_MY_HQ;rc.readSharedArray(i)>0 && i<INDEX_MY_HQ+4; i++);
+        if(i<INDEX_MY_HQ+4) {
             myHQIndex = i;
-            rc.setIndicatorString(String.valueOf(i));
-            rc.writeSharedArray(INDEX_HQBAD + i, (int) badness);
-            rc.writeSharedArray(INDEX_MY_HQ + i,
-                    Robot.locToInt(rc.getLocation()));
+            rc.writeSharedArray(i, Robot.locToInt(rc.getLocation()));
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
-
-        totalHQ = rc.getArchonCount();
 
         anomalies = rc.getAnomalySchedule();
         getNextVortex();
@@ -49,60 +42,26 @@ public class Archon extends Robot {
     }
 
     private void getNextVortex() {
-        while (vortexIndex < anomalies.length) {
-            if (anomalies[vortexIndex].anomalyType == AnomalyType.VORTEX &&
+        while(vortexIndex < anomalies.length) {
+            if(anomalies[vortexIndex].anomalyType == AnomalyType.VORTEX &&
                     anomalies[vortexIndex].roundNumber > rc.getRoundNum()) break;
             vortexIndex++;
         }
     }
 
-    boolean die = false;
-
     public void turn() throws GameActionException {
-
-        int money = rc.getTeamLeadAmount(rc.getTeam());
-        int rawIncome =  money - lastTurnMoney;
-        lastTurnMoney = money;
-
-        if (rc.getRoundNum() == 1) {
-            buildMiner();
-            updateEnemyHQs();
-            return;
+        if (rc.getArchonCount() > 1 && rc.senseNearbyRobots(2, rc.getTeam()).length > 0 && rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam()).length > 1) {
+            for (RobotInfo robot : rc.senseNearbyRobots(2, rc.getTeam()))
+                if (robot.type == RobotType.MINER) rc.disintegrate();
         }
-
-        if (rc.getRoundNum() == 2) {
-            int best = 1000000, bi = 0;
-            for (int i = 0; i < totalHQ; i++) {
-                int badi = rc.readSharedArray(INDEX_HQBAD + i);
-                if (badi < best) {
-                    best = badi;
-                    bi = i;
-                }
-            }
-            if (bi != myHQIndex) {
-                die = true;
-            } else {
-                considerRelocate();
-            }
-        }
-
-        if (die && rc.readSharedArray(INDEX_RELOCATE) == 0) {
-            buildMiner();
-            RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
-            if (nearby.length >= 2) rc.disintegrate();
-            return;
-        }
-
-        if (buildInDirection(RobotType.SAGE, rc.getLocation().directionTo(
-                new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2))))
-            return;
-
+        if (rc.getTeamGoldAmount(rc.getTeam()) >= 20 && rc.getArchonCount() == 1) 
+            buildInDirection(RobotType.SAGE, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2)));
         //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
 
-        if (anomalyIndex < anomalies.length) {
-            if (anomalies[anomalyIndex].roundNumber <= rc.getRoundNum()) {
+        if(anomalyIndex < anomalies.length) {
+            if(anomalies[anomalyIndex].roundNumber <= rc.getRoundNum()) {
                 getNextVortex();
-                if (anomalies[anomalyIndex].anomalyType == AnomalyType.VORTEX) {
+                if(anomalies[anomalyIndex].anomalyType == AnomalyType.VORTEX) {
                     considerRelocate();
                 }
 
@@ -110,19 +69,18 @@ public class Archon extends Robot {
             }
         }
 
-        if (prevIncome / rc.getArchonCount() < 200) considerRelocate();
+        if(prevIncome / rc.getArchonCount() < 200) considerRelocate();
 
-        if (relocating) {
+        if(relocating) {
             considerRelocate(); // for possible better relocation spot
 
-            if (rc.getMode() == RobotMode.TURRET) {
-                if (rc.canTransform()) rc.transform();
+            if(rc.getMode() == RobotMode.TURRET) {
+                if(rc.canTransform()) rc.transform();
             } else {
-                if (rc.getLocation() == relocTarget) {
-                    if (rc.canTransform()) {
+                if(rc.getLocation() == relocTarget) {
+                    if(rc.canTransform()) {
                         rc.transform();
                         relocating = false;
-                        rc.writeSharedArray(INDEX_RELOCATE, 0);
                     }
                 } else {
                     moveToward(relocTarget);
@@ -132,90 +90,99 @@ public class Archon extends Robot {
             return;
         }
 
-        int income = rc.readSharedArray(INDEX_INCOME) / 2;
-        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
-        if (DEBUG) {
-            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_SOLDIER_CHUNKS));
-            rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " enemy=" + enemyLoc);
+        int income = rc.readSharedArray(INDEX_INCOME)/2;
+        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS)/2;
+        if(DEBUG) {
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION+rc.getRoundNum()% Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            rc.setIndicatorString(myHQIndex+" income="+income+" miners="+liveMiners+" enemy="+enemyLoc);
         }
+        //determine if it's my turn to build
+        //it's my turn if every other archon has spent at least my spending minus 100
         boolean myTurn = true;
+        for(int i=0;i<4;i++) {
+            if(i == myHQIndex)
+                continue;
+            int x = rc.readSharedArray(INDEX_HQ_SPENDING + i);
+            if((x&0x4000)==0) //this archon is dead
+                continue;
+            if(((x&0x3000)>>12) == (rc.getRoundNum()+1)%4) { //this archon didn't update for three rounds, so it's dead
+                rc.writeSharedArray(INDEX_HQ_SPENDING + i, 0);
+                continue;
+            }
+            if(((x&0xfff)<<4) < totalSpent - 100)
+                myTurn = false;
+        }
         // if we're under attack, override this and always build
-        boolean underAttack = rc.senseNearbyRobots(ARCHON.visionRadiusSquared,
-                rc.getTeam().opponent()).length > 0;
-        int max_miners = (int) (pow(rc.getMapHeight() + rc.getMapHeight(), 1.5) / 100);
-
-        if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
-                (max_miners/1.5 > liveMiners ||
-                        (income > liveMiners * 50 && liveMiners < max_miners) ||
-                        (income > liveMiners * 100) ||
-                        rc.getRoundNum() < 20)) {
-            if (buildMiner())
-                miners++;
-        } else {
-            buildInDirection(RobotType.SOLDIER,
-                    rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)));
+        boolean underAttack = false;
+        if (rc.senseNearbyRobots(RobotType.ARCHON.visionRadiusSquared, rc.getTeam().opponent()).length > 0) {
+          myTurn = true;
+          underAttack = true;
+        }
+        if(myTurn) {
+            int max_miners;
+            switch(rc.getArchonCount()) {
+                case 1: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+1; break;
+                case 2: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+2; break;
+                case 3: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+3; break;
+                case 4: max_miners=(rc.getMapHeight()+rc.getMapWidth())/12+4; break;
+                default: max_miners=0;
+            }
+            if(!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 1000 && (max_miners > liveMiners || income>liveMiners*100 || rc.getRoundNum()<20)) {
+                if(buildMiner())
+                    miners++;
+            } else {
+                buildInDirection(RobotType.SOLDIER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2)));
+            }
         }
         // heal nearby units if we haven't done anything else
         if (rc.getActionCooldownTurns() == 0) {
-            for (RobotInfo robot : rc.senseNearbyRobots(RobotType.ARCHON.actionRadiusSquared, rc.getTeam())) {
-                if (robot.health < robot.type.health && rc.canRepair(robot.location))
-                    rc.repair(robot.location);
-            }
+          for (RobotInfo robot : rc.senseNearbyRobots(RobotType.ARCHON.actionRadiusSquared, rc.getTeam())) {
+            if (robot.health < robot.type.health && rc.canRepair(robot.location))
+              rc.repair(robot.location);
+          }
         }
         super.removeOldEnemySoldierLocations();
         super.updateEnemySoliderLocations();
-        rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum() % 4) << 12) | (totalSpent >> 4));
+        rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum()%4)<<12) | (totalSpent>>4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
-        if (rc.getRoundNum() % 160 == 0) {
+        if(rc.getRoundNum()%160==0) {
             super.clearUnexploredChunks();
         }
-        super.displayUnexploredChunks();
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 0)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 1)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 2)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 3)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 4)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 5)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 6)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 7)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 8)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_LOCATION + 9)), 1, 255, 1);
     }
 
     //build a miner toward the nearest deposit
     private boolean buildMiner() throws GameActionException {
-        MapLocation[] locs = rc.senseNearbyLocationsWithLead(ARCHON.visionRadiusSquared, 5);
-        if (locs.length == 0 || rc.senseLead(myLoc) >= 5)
+        MapLocation[] locs = rc.senseNearbyLocationsWithLead(ARCHON.visionRadiusSquared,5);
+        if(locs.length == 0 || rc.senseLead(myLoc) >= 5)
             return build(MINER);
         MapLocation closest = locs[0];
-        for (MapLocation l : locs) {
-            if (l.distanceSquaredTo(rc.getLocation()) < closest.distanceSquaredTo(rc.getLocation()))
+        for(MapLocation l : locs) {
+            if(l.distanceSquaredTo(rc.getLocation()) < closest.distanceSquaredTo(rc.getLocation()))
                 closest = l;
         }
 
         return buildInDirection(MINER, rc.getLocation().directionTo(closest));
     }
-
     private boolean buildInDirection(RobotType t, Direction d) throws GameActionException {
-        if (rc.getTeamLeadAmount(rc.getTeam()) < t.buildCostLead)
+        if(rc.getTeamLeadAmount(rc.getTeam()) < t.buildCostLead)
             return false;
         Direction[] dirs = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight(),
                 d.rotateLeft().rotateLeft().rotateLeft(), d.rotateRight().rotateRight().rotateRight(), d.opposite()};
-        double[] suitability = {1, .5, .5, .3, .3, .2, .2, .1};
-        for (int i = 0; i < 8; i++) {
+        double[] suitability = {1,.5,.5,.3,.3,.2,.2,.1};
+        for(int i=0;i<8;i++) {
             MapLocation l = rc.getLocation().add(dirs[i]);
-            if (rc.onTheMap(l))
+            if(rc.onTheMap(l))
                 suitability[i] /= 10 + rc.senseRubble(l);
         }
         double best = 0;
         Direction bestD = null;
-        for (int i = 0; i < 8; i++) {
-            if (suitability[i] > best && rc.canBuildRobot(t, dirs[i])) {
+        for(int i=0;i<8;i++) {
+            if(suitability[i]>best && rc.canBuildRobot(t, dirs[i])) {
                 best = suitability[i];
                 bestD = dirs[i];
             }
         }
-        if (bestD == null)
+        if(bestD == null)
             return false;
         rc.buildRobot(t, bestD);
         totalSpent += t.buildCostLead;
@@ -224,22 +191,22 @@ public class Archon extends Robot {
 
     //builds in a random direction if legal
     private boolean build(RobotType t) throws GameActionException {
-        if (rc.getTeamLeadAmount(rc.getTeam()) < t.getLeadWorth(1))
+        if(rc.getTeamLeadAmount(rc.getTeam()) < t.getLeadWorth(1))
             return false;
 
         ArrayList<Direction> buildables = new ArrayList<>();
-        for (Direction d : directions) {
-            if (rc.canBuildRobot(t, d))
+        for(Direction d : directions) {
+            if(rc.canBuildRobot(t, d))
                 buildables.add(d);
         }
-        if (buildables.size() == 0) return false;
+        if(buildables.size() == 0) return false;
         Direction[] dirs = new Direction[buildables.size()];
-        for (int i = 0; i < buildables.size(); i++)
+        for(int i = 0; i < buildables.size(); i++)
             dirs[i] = buildables.get(i);
 
         Direction dir = randDirByWeight(dirs, rubbleWeight);
 
-        if (rc.canBuildRobot(t, dir)) {
+        if(rc.canBuildRobot(t, dir)) {
             rc.buildRobot(t, dir);
             totalSpent += t.buildCostLead;
             return true;
@@ -257,12 +224,12 @@ public class Archon extends Robot {
         int curRubble = rc.senseRubble(here);
         int bestRubble = curRubble;
         relocTarget = here;
-        for (int dx = -5; dx <= 5; dx++) {
-            for (int dy = -(int) sqrt(34 - dx ^ 2); dy <= sqrt(34 - dx ^ 2); ++dy) {
+        for(int dx = -5; dx <= 5; dx++) {
+            for(int dy = -(int)sqrt(34-dx^2); dy <= sqrt(34-dx^2); ++dy) {
                 MapLocation newLoc = here.translate(dx, dy);
                 int newRubble = (int) sqrt(here.distanceSquaredTo(newLoc)) * EXPECTED_MOVE_COST +
                         (rc.canSenseLocation(newLoc) ? rc.senseRubble(newLoc) : 100);
-                if (newRubble < bestRubble) {
+                if(newRubble < bestRubble) {
                     bestRubble = newRubble;
                     relocTarget = newLoc;
                 }
@@ -271,15 +238,15 @@ public class Archon extends Robot {
 
         double curMul = 1 + curRubble / 10, bestMul = 1 + bestRubble / 10;
         int curTurnsLeft = (int) (roundsLeft / curMul);
-        if (relocating) curTurnsLeft -= curMul * rc.getTransformCooldownTurns();
+        if(relocating) curTurnsLeft -= curMul * rc.getTransformCooldownTurns();
         int bestTurnsLeft = (int) ((roundsLeft - (curMul + bestMul) * rc.getTransformCooldownTurns()
                 - sqrt(here.distanceSquaredTo(relocTarget)) * EXPECTED_MOVE_COST) / bestMul);
 
-        double interestFactor = rc.getArchonCount() > 1 ? 1 : 2;
+        double interestFactor = 2.0 - rc.getArchonCount() * 0.2 +
+                max(200 - income / rc.getArchonCount(), 0) * 0.05;
 
-        if (bestTurnsLeft > interestFactor * curTurnsLeft) {
+        if(bestTurnsLeft > interestFactor * curTurnsLeft) {
             relocating = true;
-            rc.writeSharedArray(INDEX_RELOCATE, 1);
             rc.setIndicatorString("Relocating");
         }
     }

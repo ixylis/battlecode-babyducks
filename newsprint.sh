@@ -1,6 +1,6 @@
 #!/bin/bash
 #run current version vs sprint and update if better
-threshold=60 #minimum win percent to update
+threshold=55 #minimum win percent to update
 source name.txt
 echo "name=$name"
 sed -i "s/teamA=.\+/teamA=$name/" gradle.properties
