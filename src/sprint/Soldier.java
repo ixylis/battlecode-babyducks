@@ -108,8 +108,12 @@ public class Soldier extends Robot {
         int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
         int friendlyStrength = 3*100/(10+rc.senseRubble(rc.getLocation()));
         int friendlyHP = rc.getHealth();
+        boolean closerFriend = false;
         for(RobotInfo r : friends) {
-            if(nearestInfDistance >= Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y))) {
+            int dist = Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y));
+            if(nearestInfDistance >= dist) {
+                if(nearestInfDistance > dist)
+                    closerFriend = true;
                 friendlyStrength += 3*100/(10+rc.senseRubble(r.location));
                 friendlyHP += r.health;
                 rc.setIndicatorDot(r.location, 0, 255, 0);
@@ -120,7 +124,6 @@ public class Soldier extends Robot {
             MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
             nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
         }
-        //nearbyRubble[8]--;//make the current location very slightly more appealing to shoot from
         boolean[] canShootFrom = new boolean[9];
         int bestDir=-1;
         for(int i=0;i<9;i++) {
@@ -137,7 +140,7 @@ public class Soldier extends Robot {
         }
         if(canShootFrom[8] && nearbyRubble[8]==nearbyRubble[bestDir])
             attack();
-        //retreat condition
+        //if it is not possible to shoot this turn, what is the correct direction to advance in?
         if(bestDir==-1) {
             for(int i=0;i<9;i++) {
                 if(Direction.allDirections()[i] == rc.getLocation().directionTo(nearest)) {
@@ -151,7 +154,9 @@ public class Soldier extends Robot {
         int retreat2 = rc.canMove(d.rotateLeft())? rc.senseRubble(rc.getLocation().add(d.rotateLeft())) : 1000;
         int retreat3 = rc.canMove(d.rotateRight())? rc.senseRubble(rc.getLocation().add(d.rotateRight())) : 1000;
         boolean retreatAttempted = false;
-        if(enemyStrength*enemyHP * (nearbyRubble[bestDir]+10) *(nearbyRubble[bestDir]+10) > 2 * friendlyStrength*friendlyHP * (nearbyRubble[8]+10) * (nearbyRubble[8]+10) || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP)) {
+        //retreat condition
+        if(!closerFriend && (enemyStrength*enemyHP * (nearbyRubble[bestDir]+10) *(nearbyRubble[bestDir]+10) > 2 * friendlyStrength*friendlyHP * (nearbyRubble[8]+10) * (nearbyRubble[8]+10)
+                || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP))) {
             int b = retreat1;
             retreatAttempted = true;
             Direction bestRetreatDir = d;
