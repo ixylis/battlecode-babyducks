@@ -162,7 +162,7 @@ public class Archon extends Robot {
         int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
                 max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 20;
         double minerToSoldier = 0.6 - (rc.getRoundNum() / 5000.0) -
-                (rc.getMapWidth() * rc.getMapHeight() / 12800.0);
+                (1600.0 / (rc.getMapWidth() * rc.getMapHeight()));
 
         if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
                 (max_miners/1.5 > liveMiners ||
