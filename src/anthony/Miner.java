@@ -203,10 +203,10 @@ public class Miner extends Robot {
         }
     }
     private MapLocation determineTarget() throws GameActionException {
-        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9)
-            return target;
         RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
         RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9 && enemies.length==0)
+            return target;
         MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
         boolean[] ignorablePb = new boolean[pbLocs.length];
         for(int i=0;i<pbLocs.length;i++) {
@@ -267,11 +267,12 @@ public class Miner extends Robot {
         for(RobotInfo r : nearby) {
             if(r.type == RobotType.MINER) {
                 int dx = rc.getLocation().x - r.location.x, dy = rc.getLocation().y - r.location.y;
-                m = m.translate(dx>0?4-dx:-4-dx,dy>0?4-dy:-4-dy);
+                int dist = rc.getLocation().distanceSquaredTo(r.location);
+                m = m.translate(dx*50/dist,dy*50/dist);
             }
         }
         //rc.setIndicatorString(m+"");
-        rc.setIndicatorDot(m, 255, 0, 0);
+        rc.setIndicatorLine(rc.getLocation(),m, 255, 0, 255);
         MapLocation result = super.getNearestUnexploredChunk(m);
         if(result==null) {
             super.clearUnexploredChunks();

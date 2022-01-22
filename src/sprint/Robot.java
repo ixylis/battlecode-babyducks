@@ -28,6 +28,8 @@ public abstract class Robot {
     MapLocation myLoc;
     MapLocation[] corners;
 
+    MapLocation hqLoc = null; // stores (original) location of HQ that spawned this
+
     abstract static class Weightage {abstract double weight(Direction d);}
 
     class RubbleWeight extends Weightage {
@@ -95,6 +97,11 @@ public abstract class Robot {
     int recentLocationsIndex = 0;
     int lastMoveTurn = 0;
     void run() {
+        // initialize hqLoc to be adjacent HQ
+        if (hqLoc == null) {
+            RobotInfo [] nearbyRobots = rc.senseNearbyRobots(2, rc.getTeam());
+            for (RobotInfo robot: nearbyRobots) if (robot.type == RobotType.ARCHON) hqLoc = robot.location;
+        }
         while(true) {
             try {
                 myLoc = rc.getLocation();
