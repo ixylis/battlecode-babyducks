@@ -100,7 +100,7 @@ public class Archon extends Robot {
             return;
         }
 
-        if(die && rng.nextDouble() * (rc.getArchonCount() - 1) < 1) return;
+        //if(die && rng.nextDouble() * (rc.getArchonCount() - 1) < 1) return;
 
         if (!die) rc.writeSharedArray(INDEX_ARCHON_LOC, locToInt(myLoc));
 
@@ -294,6 +294,7 @@ public class Archon extends Robot {
     }
 
     private void considerRelocate() throws GameActionException {
+        if (die) return;
         int nextEvent = vortexIndex < anomalies.length ?
                 anomalies[vortexIndex].roundNumber : GAME_MAX_NUMBER_OF_ROUNDS;
         int round = rc.getRoundNum();
