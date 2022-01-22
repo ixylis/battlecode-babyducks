@@ -90,8 +90,8 @@ public class Soldier extends Robot {
             }
         }
         if(!existsRecentEnemy) return false;
-        int enemyStrength = 0;
-        int enemyHP = 0;
+        int enemyStrength = 0 + 30;
+        int enemyHP = 0 + 50;
         MapLocation nearest = null;
         for(int i=0;i<recentEnemies.length;i++) {
             //if(r.type == RobotType.MINER) continue;
@@ -109,9 +109,10 @@ public class Soldier extends Robot {
         int friendlyStrength = 3*100/(10+rc.senseRubble(rc.getLocation()));
         int friendlyHP = rc.getHealth();
         for(RobotInfo r : friends) {
-            if(4 <= Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y))) {
+            if(nearestInfDistance >= Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y))) {
                 friendlyStrength += 3*100/(10+rc.senseRubble(r.location));
                 friendlyHP += r.health;
+                rc.setIndicatorDot(r.location, 0, 255, 0);
             }
         }
         int[] nearbyRubble = new int[9];
@@ -127,7 +128,7 @@ public class Soldier extends Robot {
             if(bestDir!=-1 && nearbyRubble[bestDir] < nearbyRubble[i]) continue;
             if(!rc.canMove(Direction.allDirections()[i])) continue;
             for(RobotInfo r : enemies) {
-                if(rc.getLocation().add(Direction.allDirections()[i]).distanceSquaredTo(r.location) < RobotType.SOLDIER.actionRadiusSquared) {
+                if(rc.getLocation().add(Direction.allDirections()[i]).distanceSquaredTo(r.location) <= RobotType.SOLDIER.actionRadiusSquared) {
                     canShootFrom[i] = true;
                     bestDir = i;
                     break;
@@ -149,19 +150,22 @@ public class Soldier extends Robot {
         int retreat1 = rc.canMove(d)? rc.senseRubble(rc.getLocation().add(d)) : 1000;
         int retreat2 = rc.canMove(d.rotateLeft())? rc.senseRubble(rc.getLocation().add(d.rotateLeft())) : 1000;
         int retreat3 = rc.canMove(d.rotateRight())? rc.senseRubble(rc.getLocation().add(d.rotateRight())) : 1000;
-        if(enemyStrength*enemyHP * (nearbyRubble[bestDir]+10) > friendlyStrength*friendlyHP * (nearbyRubble[8]+10) || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP)) {
+        boolean retreatAttempted = false;
+        if(enemyStrength*enemyHP * (nearbyRubble[bestDir]+10) *(nearbyRubble[bestDir]+10) > 2 * friendlyStrength*friendlyHP * (nearbyRubble[8]+10) * (nearbyRubble[8]+10) || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP)) {
             int b = retreat1;
+            retreatAttempted = true;
             Direction bestRetreatDir = d;
             if(retreat2 < b) {b = retreat2; bestRetreatDir = d.rotateLeft();}
             if(retreat3 < b) {b = retreat3; bestRetreatDir = d.rotateRight();}
-            if((b+10) * friendlyStrength*friendlyHP < (nearbyRubble[8]+10) * enemyStrength*enemyHP)
+            if((b+10) * (b+10) * friendlyStrength*friendlyHP < (nearbyRubble[8]+10) * (nearbyRubble[8]+10) * enemyStrength*enemyHP)
                 rc.move(bestRetreatDir);
         }
-        if(rc.canMove(Direction.allDirections()[bestDir]))
+        if((!retreatAttempted || (nearbyRubble[bestDir] < nearbyRubble[8])) && rc.canMove(Direction.allDirections()[bestDir]))
             rc.move(Direction.allDirections()[bestDir]);
         if(rc.isActionReady())
             attack();
-        rc.setIndicatorString("eHP "+enemyHP+" eS "+enemyStrength+" fHP "+friendlyHP+" fS "+friendlyStrength);
+        rc.setIndicatorString("eHP "+enemyHP+" eS "+enemyStrength+" fHP "+friendlyHP+" fS "+friendlyStrength+" r "+((nearbyRubble[bestDir]+10) *(nearbyRubble[bestDir]+10)/((nearbyRubble[8]+10) * (nearbyRubble[8]+10))));
+        rc.setIndicatorDot(nearest, 255, 0, 0);
         return true;
     }
     private void oldMicro() {
