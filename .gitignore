@@ -24,7 +24,7 @@ gradle.properties
 /src/_*
 /src/*.zip
 /tmp/*
-
+/src/matir
 
 # User-specific stuff:
 battlecode-scaffold.iws
