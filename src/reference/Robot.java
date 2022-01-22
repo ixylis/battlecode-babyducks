@@ -1,10 +1,14 @@
 package reference;
 
-import java.util.Random;
-
 import battlecode.common.*;
 
+import java.util.Random;
+
+import static battlecode.common.RobotType.*;
+import static java.lang.Math.sqrt;
+
 public abstract class Robot {
+    public static final int SEED=0;
     public static final int INDEX_MY_HQ=0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ=4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS=8;
@@ -13,25 +17,86 @@ public abstract class Robot {
     public static final int NUM_ENEMY_SOLDIER_CHUNKS=10;
     public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
-    
+    public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
+    public static final double HEALTH_FACTOR = 0.2;
+    MapLocation myLoc;
+    MapLocation[] corners;
+
+    abstract static class Weightage {abstract double weight(Direction d);}
+
+    class RubbleWeight extends Weightage {
+
+        @Override
+        double weight(Direction d) {
+            try {
+                if(rc.canSenseLocation(myLoc.add(d)))
+                    return 1000 / (10.0 + rc.senseRubble(myLoc.add(d)));
+                else
+                    return 0;
+            } catch(GameActionException e) {
+                e.printStackTrace();
+            }
+
+            return 0.0;
+        }
+    }
+    RubbleWeight rubbleWeight = new RubbleWeight();
+
+    class TargetWeight extends Weightage {
+
+        MapLocation targetLoc;
+
+        TargetWeight(MapLocation targetLoc) {
+            this.targetLoc = targetLoc;
+        }
+
+        @Override
+        double weight(Direction d) {
+            MapLocation newLoc = myLoc.add(d);
+            double curDist = myLoc.distanceSquaredTo(targetLoc);
+            double newDist = newLoc.distanceSquaredTo(targetLoc);
+            if(newDist > curDist) return 1;
+            return (10 * (sqrt(curDist) - sqrt(newDist)) + 1) * (1 + rubbleWeight.weight(d));
+        }
+    }
+
     /*
      * intention is for each enemy seen within the last 20 rounds is in here
      * but only put distinct entries if they are more than 4 tiles apart.
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
     
-    
     public static final boolean DEBUG=true;
     public final Random rng;
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
         rc = r;
-        rng = new Random(rc.getID());
+        rng = new Random(SEED + rc.getID());
+        corners = new MapLocation[4];
+        corners[0] = new MapLocation(0, 0);
+        corners[1] = new MapLocation(rc.getMapWidth() - 1, 0);
+        corners[2] = new MapLocation(0, rc.getMapHeight() - 1);
+        corners[3] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() - 1);
+//        corners[4] = new MapLocation(rc.getMapWidth() / 2, 0);
+//        corners[5] = new MapLocation(0, rc.getMapHeight() / 2);
+//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+//        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+//        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
     }
+
+    MapLocation[] recentLocations=new MapLocation[10];
+    int recentLocationsIndex = 0;
+    int lastMoveTurn = 0;
     void run() {
         while(true) {
             try {
+                myLoc = rc.getLocation();
                 turn();
+                if(!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
+                    recentLocationsIndex = (recentLocationsIndex + 1)%10;
+                    recentLocations[recentLocationsIndex] = rc.getLocation();
+                    lastMoveTurn = rc.getRoundNum();
+                }
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch(Exception e) {
@@ -54,28 +119,193 @@ public abstract class Robot {
         Direction.WEST,
         Direction.NORTHWEST,
     };
-    
+
     public void moveInDirection(Direction d) throws GameActionException {
+        Direction moveDir = bestMove(d);
+        if(rc.canMove(moveDir))
+            rc.move(moveDir);
+    }
+
+    public Direction bestMove(Direction d) throws GameActionException {
         Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
         double[] suitability = {1,.5,.5,.1,.1};
         for(int i=0;i<5;i++) {
             MapLocation l = rc.getLocation().add(dd[i]);
             if(rc.onTheMap(l))
                 suitability[i] /= 10 + rc.senseRubble(l);
+
         }
         double best = 0;
-        Direction bestD = null;
+        Direction bestD = Direction.CENTER;
         for(int i=0;i<5;i++) {
             if(suitability[i]>best && rc.canMove(dd[i])) {
                 best = suitability[i];
                 bestD = dd[i];
             }
         }
-        if(bestD != null) {
-            rc.move(bestD);
-        }
+        return bestD;
     }
-    public void moveToward(MapLocation l) throws GameActionException {
+
+    int frustration=0;
+    MapLocation lastMoveTowardTarget;
+    public void moveToward(MapLocation to) throws GameActionException {
+        if(Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        MapLocation me = rc.getLocation();
+        int dx = to.x - me.x, dy = to.y - me.y;
+        Direction ideal=null;
+        Direction ok=null, ok2=null;
+        Direction mediocre=null, mediocre2=null;
+        Direction sad=null, sad2=null;
+        boolean onDiagonal=false;
+        boolean onEdge=false;
+        if(dx < 0) {
+            if(dy < 0) {
+                ideal = Direction.SOUTHWEST;
+                if(dx < dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.SOUTH;
+                } else if(dx > dy){
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else if(dy > 0) {
+                ideal = Direction.NORTHWEST;
+                if(dx < -dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.NORTH;
+                } else if(dx > -dy){
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else {
+                ideal = Direction.WEST;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.SOUTHWEST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else if(dx > 0) {
+            if(dy < 0) {
+                ideal = Direction.SOUTHEAST;
+                if(-dx < dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.SOUTH;
+                } else if(-dx > dy){
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else if(dy > 0) {
+                ideal = Direction.NORTHEAST;
+                if(-dx < -dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.NORTH;
+                } else if(-dx > -dy){
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else {
+                ideal = Direction.EAST;
+                ok = Direction.NORTHEAST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else {
+            if(dy < 0) {
+                ideal = Direction.SOUTH;
+                ok = Direction.SOUTHWEST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else if(dy > 0) {
+                ideal = Direction.NORTH;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.NORTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else {
+                return; //we are at the destination!
+            }
+        }
+        MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9)%10];
+        Direction lastMoveDir = (recentLoc==null || to!=lastMoveTowardTarget)?null:me.directionTo(recentLoc);
+        lastMoveTowardTarget = to;
+        while(frustration < 111) {
+            rc.setIndicatorString("frustration "+frustration+" "+ideal);
+            Direction d = ideal;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = 0;
+                return;
+            }
+            d = ok;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal?15:5;
+                return;
+            }
+            d = ok2;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal?15:5;
+                return;
+            }
+            d = mediocre;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += onEdge?20:15;
+                return;
+            }
+            d = mediocre2;
+            if(lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += 20;
+                return;
+            }
+            frustration += 10;
+        }
+        frustration = 100;
+    }
+    public void moveTowardOld(MapLocation l) throws GameActionException {
         if(Robot.DEBUG) {
             rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
             //System.out.println("Navigating toward " + l);
@@ -90,15 +320,66 @@ public abstract class Robot {
         }
         moveInDirection(rc.getLocation().directionTo(l));
     }
+
+    public void moveTowardMatir(MapLocation l) throws GameActionException {
+        moveTowardMatir(l, 0.05);
+    }
+
+    public void moveTowardMatir(MapLocation l, double randomness) throws GameActionException {
+        if(Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        if(!rc.isMovementReady()) return;
+        if(rc.getLocation().equals(l)) return;
+        if(rc.getLocation().isAdjacentTo(l)) {
+            Direction d = rc.getLocation().directionTo(l);
+            if(rc.canMove(d))
+                rc.move(d);
+            return;
+        }
+        Direction d = rc.getLocation().directionTo(l);
+        Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
+        Direction moveDir = rng.nextDouble() < randomness ?
+                randDirByWeight(dd, new TargetWeight(l)) : bestMove(d);
+        if(rc.canMove(moveDir)) rc.move(moveDir);
+    }
+
+    public Direction randDirByWeight(Direction[] dirs, Weightage wt) {
+
+        double[] cwt = new double[dirs.length+1];
+        cwt[0] = 0;
+
+        for(int i=1;i<=dirs.length;++i)
+        {
+            cwt[i] = cwt[i-1] + wt.weight(dirs[i-1]);
+        }
+
+        if(cwt[dirs.length] == 0) return null;
+
+        for(int i=1;i<=dirs.length;++i)
+        {
+            cwt[i] /= cwt[dirs.length];
+        }
+
+        double r = rng.nextDouble();
+        int i = 0;
+        while(cwt[i] < r) i++;
+
+        return dirs[i-1];
+    }
+
     private MapLocation wanderTarget=null;
     private int lastWanderProgress = 0; //the last turn which we wandered closer to our destination
     public void wander() throws GameActionException {
-        while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10 || lastWanderProgress+20 < rc.getRoundNum()) {
-            wanderTarget = new MapLocation(rng.nextInt(rc.getMapWidth()),rng.nextInt(rc.getMapHeight()));
+        while(wanderTarget==null || rc.getLocation().distanceSquaredTo(wanderTarget)<10) {
+            wanderTarget = rng.nextDouble() < 0.5 ?
+                    corners[rng.nextInt(4)] :
+                    new MapLocation(rng.nextInt(rc.getMapWidth()), rng.nextInt(rc.getMapHeight()));
             lastWanderProgress = rc.getRoundNum();
         }
         MapLocation old = rc.getLocation();
-        moveToward(wanderTarget);
+        moveTowardMatir(wanderTarget, 1);
         if(rc.getLocation().distanceSquaredTo(wanderTarget) < old.distanceSquaredTo(wanderTarget))
             lastWanderProgress = rc.getRoundNum();
     }
@@ -121,9 +402,9 @@ public abstract class Robot {
         MapLocation[] possibleEnemyHQs = new MapLocation[12];
         for(int i=0;i<4 && rc.readSharedArray(i+Robot.INDEX_MY_HQ)>0;i++) {
             MapLocation l = intToLoc(rc.readSharedArray(i+Robot.INDEX_MY_HQ));
-            possibleEnemyHQs[i*3] = new MapLocation(rc.getMapWidth()-l.x,l.y);
-            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,rc.getMapHeight()-l.y);
-            possibleEnemyHQs[i*3+2] = new MapLocation(rc.getMapWidth()-l.x,rc.getMapHeight()-l.y);
+            possibleEnemyHQs[i*3] = new MapLocation(rc.getMapWidth()-1-l.x,l.y);
+            possibleEnemyHQs[i*3+1] = new MapLocation(l.x,rc.getMapHeight()-1-l.y);
+            possibleEnemyHQs[i*3+2] = new MapLocation(rc.getMapWidth()-1-l.x,rc.getMapHeight()-1-l.y);
         }
         int totalWeight = 0;
         for(int i=0;i<12;i++) {
@@ -216,7 +497,7 @@ public abstract class Robot {
             
         }
         for(RobotInfo r:rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
-            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER) {
+            if(r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER || r.type == RobotType.MINER) {
                 int x = Robot.chunkToInt(r.location);
                 boolean found=false;
                 for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
@@ -248,5 +529,117 @@ public abstract class Robot {
             }
         }
         return nearest;
+    }
+
+    MapLocation getNearestUnexploredChunk(MapLocation l) throws GameActionException {
+        int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
+        int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
+        int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
+        int x3 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3);
+        int mh = rc.getMapHeight(), mw = rc.getMapWidth();
+        MapLocation m;
+        MapLocation best = null;
+        int bestD = 9999;
+        if((x0 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*1/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x0 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*3/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*5/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x1 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*7/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*9/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x2 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*11/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x1) == 0 && (m = new MapLocation(mw*1/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x2) == 0 && (m = new MapLocation(mw*3/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x4) == 0 && (m = new MapLocation(mw*5/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x8) == 0 && (m = new MapLocation(mw*7/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x10) == 0 && (m = new MapLocation(mw*9/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x20) == 0 && (m = new MapLocation(mw*11/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x40) == 0 && (m = new MapLocation(mw*13/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x80) == 0 && (m = new MapLocation(mw*15/16,mh*13/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x100) == 0 && (m = new MapLocation(mw*1/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x200) == 0 && (m = new MapLocation(mw*3/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x400) == 0 && (m = new MapLocation(mw*5/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x800) == 0 && (m = new MapLocation(mw*7/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x1000) == 0 && (m = new MapLocation(mw*9/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x2000) == 0 && (m = new MapLocation(mw*11/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x4000) == 0 && (m = new MapLocation(mw*13/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+        if((x3 & 0x8000) == 0 && (m = new MapLocation(mw*15/16,mh*15/16)).distanceSquaredTo(l) < bestD) {best = m;bestD = m.distanceSquaredTo(l);}
+
+        return best;
+    }
+    void writeUnexploredChunk() throws GameActionException {
+        MapLocation l = rc.getLocation();
+        int k = l.x*8/rc.getMapWidth() + (l.y*8/rc.getMapHeight())*8;
+        //rc.setIndicatorString(""+k);
+        int i=k/16, j = k%16;
+        //rc.setIndicatorString(Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0))+" "+Integer.toBinaryString(rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1))
+        //+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2)+" "+rc.readSharedArray(INDEX_EXPLORED_CHUNKS+3)+" "+i+" "+j);
+        if((rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) & (1<<j)) == 0)
+            rc.writeSharedArray(INDEX_EXPLORED_CHUNKS+i, rc.readSharedArray(INDEX_EXPLORED_CHUNKS+i) | (1<<j));
+    }
+    void clearUnexploredChunks() throws GameActionException {
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+0, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+1, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+2, 0);
+        rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS+3, 0);
+    }
+
+    public int computeStrength(RobotInfo[] robots) throws GameActionException {
+        int strength = 0;
+
+        for(RobotInfo r: robots) {
+            if(r.getType() == SOLDIER || r.getType() == WATCHTOWER)
+                strength += 1000 / (10 + rc.senseRubble(r.location)) + r.health * HEALTH_FACTOR;
+        }
+
+        return strength;
+    }
+
+    public boolean isAttacker(RobotInfo ri) {
+        RobotType rt = ri.type;
+
+        return rt == SOLDIER ||
+                rt == WATCHTOWER ||
+                rt == SAGE;
     }
 }

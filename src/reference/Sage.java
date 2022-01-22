@@ -1,25 +1,24 @@
-package sprint;
+package reference;
 
 import battlecode.common.*;
 
 import static battlecode.common.RobotType.*;
-import static java.lang.Math.max;
 
-public class Soldier extends Robot {
-    Soldier(RobotController r) throws GameActionException {
+public class Sage extends Robot {
+    Sage(RobotController r) throws GameActionException {
         super(r);
     }
 
     private MapLocation movementTarget = null;
 
     public void turn() throws GameActionException {
-        if (rc.isActionReady())
-            attack();
         if (rc.isMovementReady())
             movement();
+        if (rc.isActionReady())
+            attack();
         else
             super.updateEnemySoliderLocations();
-        if (rc.isActionReady()) attack();
+        if (rc.isMovementReady()) movement();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
         rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
@@ -59,9 +58,6 @@ public class Soldier extends Robot {
             return d.rotateRight();
     }
 
-    RobotInfo[] recentEnemies = new RobotInfo[10];
-    int[] recentEnemiesRounds = new int[10];
-
     private boolean micro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
@@ -75,7 +71,7 @@ public class Soldier extends Robot {
             if (nearest == null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
                 nearest = r.location;
         }
-        int nearestInfDistance = max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
+        int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
 
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
@@ -83,6 +79,7 @@ public class Soldier extends Robot {
          * declare that spot 'occupied by friendly forces'
          */
         Direction toMove = null;
+
         int myAdvanceStrength = 0;
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
@@ -113,7 +110,7 @@ public class Soldier extends Robot {
                 to = from;
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
-            if (max(Math.abs(to.x - rc.getLocation().x), Math.abs(to.y - rc.getLocation().y)) <= 3)
+            if (Math.max(Math.abs(to.x - rc.getLocation().x), Math.abs(to.y - rc.getLocation().y)) <= 3)
                 myAdvanceStrength += 1000 / (10 + rubbleTo) * 10 / (10 + rc.senseRubble(r.location));
         }
         //now time to calculate the enemy strength
@@ -130,7 +127,7 @@ public class Soldier extends Robot {
             MapLocation option1 = from.add(d);
             MapLocation option2 = from.add(d.rotateLeft());
             MapLocation option3 = from.add(d.rotateRight());
-            int rubble0 = rc.senseRubble(from) * 2 + 10;
+            int rubble0 = rc.senseRubble(from);
             int rubble1 = rc.canSenseLocation(option1) ? rc.senseRubble(option1) : 100;
             int rubble2 = rc.canSenseLocation(option2) ? rc.senseRubble(option2) : 100;
             int rubble3 = rc.canSenseLocation(option3) ? rc.senseRubble(option3) : 100;
@@ -142,18 +139,14 @@ public class Soldier extends Robot {
                 toMove = d.rotateRight(); //rc.move(d.rotateRight());
             //return true;
         }
-        MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
-        double spaceFactor = 10 * home.distanceSquaredTo(myLoc) /
-                (double)(max(rc.getMapWidth() - home.x - 1, home.x) *
-                        max(rc.getMapHeight() - home.y - 1, home.y));
-        if (!(toMove != null && enemyAdvanceStrength * spaceFactor < myAdvanceStrength + 1000 / (10 + rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns() < 8)) {
+        if (!(toMove != null && enemyAdvanceStrength * 2 < myAdvanceStrength + 1000 / (10 + rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns() < 8)) {
             toMove = null; //don't advance if condition isn't met.
         }
         int myHoldStrength = 0;
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
                 continue;
-            int infDist = max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
+            int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if (infDist <= nearestInfDistance)
                 myHoldStrength += 1000 / (10 + rc.senseRubble(r.location));
         }
@@ -161,10 +154,10 @@ public class Soldier extends Robot {
         for (RobotInfo r : enemies) {
             if (r.type == RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
                 continue;
-            if (max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
+            if (Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
                 enemyHoldStrength += 1000 / (10 + rc.senseRubble(r.location));
         }
-        if (toMove == null && (myHoldStrength < enemyHoldStrength || (!rc.isActionReady() && enemyHoldStrength > 0))) {
+        if (toMove == null && (myHoldStrength < enemyHoldStrength * 1.2 || (!rc.isActionReady() && enemyHoldStrength > 0))) {
             //retreat
             //always look for low rubble retreats
             int myx = rc.getLocation().x;
@@ -210,101 +203,38 @@ public class Soldier extends Robot {
         return true;
     }
 
-    private void bytecodeTest() {
-        int[][] a = new int[10][10];
-        int c55 = 0;
-        int c77;
-        int b = Clock.getBytecodeNum();
-        a[5][5] = 5;
-        int b1 = Clock.getBytecodeNum();
-        c55 = rc.getID() % 10;
-        int b2 = Clock.getBytecodeNum();
-        a[INDEX_ENEMY_HQ][INDEX_ENEMY_HQ] = 6;
-        int b3 = Clock.getBytecodeNum();
-        c55 = a[5][5];
-        c77 = c55;
-        int b4 = Clock.getBytecodeNum();
-
-        rc.setIndicatorString("[][] = " + (b1 - b) + " normal " + (b2 - b1) + " " + (b3 - b2) + " read " + (b4 - b3) + " " + c77);
-    }
-
-    boolean healing = false;
-    boolean dying = false, there = false;
-
     private void movement() throws GameActionException {
-        if(dying) {
-            if(!there) {
-                MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
-                moveToward(home);
+        /* if (rc.isActionReady()) {
+            RobotInfo[] enemies = rc.senseNearbyRobots(SAGE.visionRadiusSquared,
+                    rc.getTeam().opponent());
 
-                if (home.distanceSquaredTo(myLoc) <= ARCHON.visionRadiusSquared) {
-                    there = true;
-                    movementTarget = null;
-                }
-            }
+            boolean[] enemyAfterMove = new boolean[8];
+            int moveable = 0;
 
-            if(there) {
-                MapLocation[] nonlead =
-                        rc.getAllLocationsWithinRadiusSquared(myLoc,
-                                SOLDIER.visionRadiusSquared);
-
-                int best = movementTarget == null ? 10000 :
-                        myLoc.distanceSquaredTo(movementTarget);
-
-                for(MapLocation loc : nonlead) {
-                    if(rc.senseLead(loc) > 0) continue;
-
-                    int dist = myLoc.distanceSquaredTo(loc);
-
-                    if(dist < best) {
-                        movementTarget = loc;
-                        best = dist;
+            for (Direction dir : Direction.cardinalDirections()) {
+                for (RobotInfo enemy : enemies) {
+                    if (enemy.location.distanceSquaredTo(
+                            myLoc.add(dir)) < SAGE.actionRadiusSquared) {
+                        enemyAfterMove[dir.ordinal()] = true;
+                        moveable++;
+                        break;
                     }
                 }
-
-                if(movementTarget != null) {
-                    moveToward(movementTarget);
-                } else {
-                    rc.disintegrate();
-                }
-
-                if(rc.senseLead(myLoc) == 0) {
-                    rc.disintegrate();
-                }
             }
-
-            return;
-        }
-
-        if(rc.getHealth() < 10) {
-            if(!healing) {
-                int healees = rc.readSharedArray(INDEX_HEALING);
-                if (healees < MAX_HEALS) {
-                    healing = true;
-                    rc.writeSharedArray(INDEX_HEALING, healees + 1);
-                } else {
-                    dying = true;
+            if(moveable > 0) {
+                Direction[] valid = new Direction[moveable];
+                int i = 0;
+                for(int j = 0; j < moveable; j++) {
+                    while(!enemyAfterMove[i]) i++;
+                    valid[j] = Direction.cardinalDirections()[i];
                 }
-            }
-        }
 
-        if(healing) {
-            if(rc.getHealth() >= 49) {
-                healing = false;
-                int healees = rc.readSharedArray(INDEX_HEALING);
-                rc.writeSharedArray(INDEX_HEALING, healees - 1);
-            } else {
-                MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
-                if (home.distanceSquaredTo(myLoc) >
-                        ARCHON.actionRadiusSquared)
-                    moveToward(home);
-
+                moveInDirection(randDirByWeight(valid, rubbleWeight));
                 return;
             }
-        }
+        } */
 
-        if (micro())
-            return;
+        if (micro()) return;
 
         if (movementTarget != null && rc.canSenseLocation(movementTarget))
             movementTarget = null;
@@ -318,21 +248,44 @@ public class Soldier extends Robot {
     }
 
     public void attack() throws GameActionException {
-        int radius = rc.getType().actionRadiusSquared;
+        int radius = SAGE.actionRadiusSquared;
         Team opponent = rc.getTeam().opponent();
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if (enemies.length == 0) return;
         RobotInfo bestTarget = enemies[0];
         for (RobotInfo rb : enemies) {
-            if ((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) &&
-                    (rb.type == SOLDIER || rb.type == WATCHTOWER))
-                    || ((!(bestTarget.type == SOLDIER || bestTarget.type == WATCHTOWER) ||
-                    (rb.type == SOLDIER || rb.type == WATCHTOWER)) &&
-                    bestTarget.health > rb.health)) {
-                bestTarget = rb;
+            if (bestTarget.health < SAGE.damage) {
+                if (rb.health < SAGE.damage) {
+                    if (rb.health > bestTarget.health) {
+                        bestTarget = rb;
+                    }
+                }
+            } else {
+                if (rb.health < SAGE.damage) {
+                    bestTarget = rb;
+                } else {
+                    if (rb.health < bestTarget.health) {
+                        if (isAttacker(bestTarget)) {
+                            if (isAttacker(rb)) {
+                                if (rb.health < bestTarget.health)
+                                    bestTarget = rb;
+                            }
+                        } else {
+                            if (isAttacker(rb)) {
+                                bestTarget = rb;
+                            } else {
+                                if (rb.health < bestTarget.health)
+                                    bestTarget = rb;
+                            }
+                        }
+                    }
+                }
             }
         }
         if (rc.canAttack(bestTarget.location))
             rc.attack(bestTarget.location);
     }
 }
+
+
+

@@ -121,28 +121,30 @@ public class Archon extends Robot {
             }
         }
 
-        if (prevIncome / rc.getArchonCount() < 200) considerRelocate();
+        if(!die) {
+            if (prevIncome / rc.getArchonCount() < 200) considerRelocate();
 
-        if (relocating) {
-            considerRelocate(); // for possible better relocation spot
+            if (relocating) {
+                considerRelocate(); // for possible better relocation spot
 
-            if (rc.getMode() == RobotMode.TURRET) {
-                if (rc.canTransform()) rc.transform();
-            } else {
-                if (rc.getLocation() == relocTarget) {
-                    if (rc.canTransform()) {
-                        rc.transform();
-                        relocating = false;
-                        rc.writeSharedArray(INDEX_RELOCATE, 0);
-                    }
+                if (rc.getMode() == RobotMode.TURRET) {
+                    if (rc.canTransform()) rc.transform();
                 } else {
-                    moveToward(relocTarget);
-                    myLoc = rc.getLocation();
-                    rc.writeSharedArray(INDEX_ARCHON_LOC, locToInt(myLoc));
+                    if (rc.getLocation() == relocTarget) {
+                        if (rc.canTransform()) {
+                            rc.transform();
+                            relocating = false;
+                            rc.writeSharedArray(INDEX_RELOCATE, 0);
+                        }
+                    } else {
+                        moveToward(relocTarget);
+                        myLoc = rc.getLocation();
+                        rc.writeSharedArray(INDEX_ARCHON_LOC, locToInt(myLoc));
+                    }
                 }
-            }
 
-            return;
+                return;
+            }
         }
 
         int income = rc.readSharedArray(INDEX_INCOME) / 2;
@@ -155,13 +157,19 @@ public class Archon extends Robot {
         // if we're under attack, override this and always build
         boolean underAttack = rc.senseNearbyRobots(ARCHON.visionRadiusSquared,
                 rc.getTeam().opponent()).length > 0;
-        int max_miners = (int) (pow(rc.getMapHeight() * rc.getMapHeight(), 0.75) / 120);
+        int max_miners = (int) ((pow(rc.getMapHeight() * rc.getMapHeight(), 0.8) / 250) *
+                pow(rc.getRoundNum(), 0.3));
+        int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
+                max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 20;
+        double minerToSoldier = 0.75 - (rc.getRoundNum() / 5000.0) -
+                (rc.getMapWidth() * rc.getMapHeight() / 12800.0);
 
-        if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
+        if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 300 &&
                 (max_miners/1.5 > liveMiners ||
                         (income > liveMiners * 50 && liveMiners < max_miners) ||
                         (income > liveMiners * 100) ||
-                        rc.getRoundNum() < 20)) {
+                        rc.getRoundNum() < initTurns) ||
+                        soldiers * minerToSoldier > miners) {
             if (buildMiner())
                 miners++;
         } else {

@@ -2,7 +2,11 @@ package sprint;
 
 import battlecode.common.*;
 
+import static battlecode.common.AnomalyType.CHARGE;
+import static battlecode.common.AnomalyType.FURY;
 import static battlecode.common.RobotType.*;
+import static java.lang.Math.PI;
+import static java.lang.Math.max;
 
 public class Sage extends Robot {
     Sage(RobotController r) throws GameActionException {
@@ -71,7 +75,7 @@ public class Sage extends Robot {
             if (nearest == null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
                 nearest = r.location;
         }
-        int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
+        int nearestInfDistance = max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
 
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
@@ -110,7 +114,7 @@ public class Sage extends Robot {
                 to = from;
             }
             toBeOccupied[to.x - rc.getLocation().x + 5][to.y - rc.getLocation().y + 5] = true;
-            if (Math.max(Math.abs(to.x - rc.getLocation().x), Math.abs(to.y - rc.getLocation().y)) <= 3)
+            if (max(Math.abs(to.x - rc.getLocation().x), Math.abs(to.y - rc.getLocation().y)) <= 3)
                 myAdvanceStrength += 1000 / (10 + rubbleTo) * 10 / (10 + rc.senseRubble(r.location));
         }
         //now time to calculate the enemy strength
@@ -146,7 +150,7 @@ public class Sage extends Robot {
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
                 continue;
-            int infDist = Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
+            int infDist = max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if (infDist <= nearestInfDistance)
                 myHoldStrength += 1000 / (10 + rc.senseRubble(r.location));
         }
@@ -154,7 +158,7 @@ public class Sage extends Robot {
         for (RobotInfo r : enemies) {
             if (r.type == RobotType.MINER || r.type == RobotType.BUILDER || r.type == RobotType.ARCHON)
                 continue;
-            if (Math.max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
+            if (max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y)) < 4)
                 enemyHoldStrength += 1000 / (10 + rc.senseRubble(r.location));
         }
         if (toMove == null && (myHoldStrength < enemyHoldStrength * 1.2 || (!rc.isActionReady() && enemyHoldStrength > 0))) {
@@ -248,14 +252,31 @@ public class Sage extends Robot {
     }
 
     public void attack() throws GameActionException {
+        if (!rc.isActionReady()) return;
         int radius = SAGE.actionRadiusSquared;
         Team opponent = rc.getTeam().opponent();
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if (enemies.length == 0) return;
+        int droidVal = 0, buildingVal = 0;
+        int maxHP;
         RobotInfo bestTarget = enemies[0];
+
         for (RobotInfo rb : enemies) {
-            if (bestTarget.health < SAGE.damage) {
-                if (rb.health < SAGE.damage) {
+            maxHP = rb.type.getMaxHealth(rb.level);
+            if (rb.type.isBuilding()) {
+                if (rb.type == ARCHON) {
+                    buildingVal += rb.health < (maxHP * 0.10) ?
+                            rb.health + 100 : maxHP * 0.01;
+                } else {
+                    buildingVal += rb.health < (maxHP * 0.10) ?
+                            rb.health + 15 : maxHP * 0.1;
+                }
+            } else {
+                droidVal += rb.health < (maxHP * 0.22)
+                        ? rb.health + 15 : maxHP * 0.22;
+            }
+            if (bestTarget.health <= SAGE.damage) {
+                if (rb.health <= SAGE.damage) {
                     if (rb.health > bestTarget.health) {
                         bestTarget = rb;
                     }
@@ -264,26 +285,43 @@ public class Sage extends Robot {
                 if (rb.health < SAGE.damage) {
                     bestTarget = rb;
                 } else {
-                    if (rb.health < bestTarget.health) {
-                        if (isAttacker(bestTarget)) {
-                            if (isAttacker(rb)) {
-                                if (rb.health < bestTarget.health)
-                                    bestTarget = rb;
-                            }
-                        } else {
-                            if (isAttacker(rb)) {
+                    if (isAttacker(bestTarget)) {
+                        if (isAttacker(rb)) {
+                            if (rb.health < bestTarget.health)
                                 bestTarget = rb;
-                            } else {
-                                if (rb.health < bestTarget.health)
-                                    bestTarget = rb;
-                            }
+                        }
+                    } else {
+                        if (isAttacker(rb)) {
+                            bestTarget = rb;
+                        } else {
+                            if (rb.health < bestTarget.health)
+                                bestTarget = rb;
                         }
                     }
                 }
             }
         }
-        if (rc.canAttack(bestTarget.location))
-            rc.attack(bestTarget.location);
+
+        int hitval = (bestTarget.health <= SAGE.damage) ?
+                bestTarget.health + 15 : SAGE.damage;
+
+        if(hitval >= max(droidVal, buildingVal)) {
+            if (rc.canAttack(bestTarget.location))
+                rc.attack(bestTarget.location);
+
+            return;
+        }
+
+        if(droidVal >= buildingVal) {
+            if(rc.canEnvision(CHARGE))
+                rc.envision(CHARGE);
+
+            return;
+        }
+
+        if(rc.canEnvision(FURY)) {
+            rc.envision(FURY);
+        }
     }
 }
 

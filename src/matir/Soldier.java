@@ -143,7 +143,7 @@ public class Soldier extends Robot {
             //return true;
         }
         MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
-        double spaceFactor = 8 * home.distanceSquaredTo(myLoc) /
+        double spaceFactor = 10 * home.distanceSquaredTo(myLoc) /
                 (double)(max(rc.getMapWidth() - home.x - 1, home.x) *
                         max(rc.getMapHeight() - home.y - 1, home.y));
         if (!(toMove != null && enemyAdvanceStrength * spaceFactor < myAdvanceStrength + 1000 / (10 + rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns() < 8)) {

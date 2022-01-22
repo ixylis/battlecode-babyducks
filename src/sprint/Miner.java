@@ -8,6 +8,8 @@ import battlecode.common.RobotController;
 import battlecode.common.RobotInfo;
 import battlecode.common.RobotType;
 
+import static battlecode.common.RobotType.MINER;
+
 public class Miner extends Robot {
     int recentlyMined = 0;
     MapLocation home;
@@ -82,13 +84,21 @@ public class Miner extends Robot {
      * -5/d for your home
      */
     private void movement() throws GameActionException {
+        MapLocation[] golds = rc.senseNearbyLocationsWithGold(
+                MINER.visionRadiusSquared);
+
+        if(golds.length > 0) {
+            moveToward(golds[0]);
+            return;
+        }
+
         boolean[][] hasNearbyMiner = new boolean[11][11];
-        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+        RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
         RobotInfo nearest = null;
         int myx=rc.getLocation().x;
         int myy=rc.getLocation().y;
         for(RobotInfo r:nearby) {
-            if(r.type==RobotType.MINER) {
+            if(r.type== MINER) {
                 if(nearest==null || rc.getLocation().distanceSquaredTo(nearest.location) > rc.getLocation().distanceSquaredTo(r.location))
                     nearest=r;
                 int x=r.location.x-myx;
@@ -203,11 +213,11 @@ public class Miner extends Robot {
         }
     }
     private MapLocation determineTarget() throws GameActionException {
-        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9)
+        RobotInfo[] enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam().opponent());
+        RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
+        if(target != null && rc.getLocation().distanceSquaredTo(target) > 50 && rng.nextDouble() < .9 && enemies.length==0)
             return target;
-        RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
-        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
-        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
+        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(MINER.visionRadiusSquared,2);
         boolean[] ignorablePb = new boolean[pbLocs.length];
         for(int i=0;i<pbLocs.length;i++) {
             MapLocation pb = pbLocs[i];
@@ -216,7 +226,7 @@ public class Miner extends Robot {
                 continue;
             }
             for(RobotInfo r : nearby) {
-                if(r.type == RobotType.MINER) {
+                if(r.type == MINER) {
                     if(r.location.distanceSquaredTo(pb) < rc.getLocation().distanceSquaredTo(pb)) {
                         ignorablePb[i] = true;
                         break;
@@ -265,7 +275,7 @@ public class Miner extends Robot {
         }
         */
         for(RobotInfo r : nearby) {
-            if(r.type == RobotType.MINER) {
+            if(r.type == MINER) {
                 int dx = rc.getLocation().x - r.location.x, dy = rc.getLocation().y - r.location.y;
                 m = m.translate(dx>0?4-dx:-4-dx,dy>0?4-dy:-4-dy);
             }
@@ -281,8 +291,8 @@ public class Miner extends Robot {
     }
     private int[] suitability = new int[8];
     private void determineMovementSuitability() throws GameActionException {
-        RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam().opponent());
-        RobotInfo[] nearby = rc.senseNearbyRobots(RobotType.MINER.visionRadiusSquared, rc.getTeam());
+        RobotInfo[] enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam().opponent());
+        RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
         int[] nearbyRubble = new int[9];
         for(int i=0;i<9;i++) {
             MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
@@ -300,7 +310,7 @@ public class Miner extends Robot {
             nearestEnemy = null;
         rc.setIndicatorLine(rc.getLocation(), unexplored, 0, 255, 0);
 
-        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(RobotType.MINER.visionRadiusSquared,2);
+        MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(MINER.visionRadiusSquared,2);
         boolean[] ignorablePb = new boolean[pbLocs.length];
         for(int i=0;i<pbLocs.length;i++) {
             MapLocation pb = pbLocs[i];
@@ -309,7 +319,7 @@ public class Miner extends Robot {
                 continue;
             }
             for(RobotInfo r : nearby) {
-                if(r.type == RobotType.MINER) {
+                if(r.type == MINER) {
                     if(r.location.distanceSquaredTo(pb) < rc.getLocation().distanceSquaredTo(pb)) {
                         ignorablePb[i] = true;
                         break;
@@ -339,7 +349,7 @@ public class Miner extends Robot {
                 x += 100 * Math.sqrt(m.distanceSquaredTo(nearestEnemy));
             //s += " f";
             for(RobotInfo r : nearby) {
-                if(r.type != RobotType.MINER)
+                if(r.type != MINER)
                     continue;
                 x -= 25.0/m.distanceSquaredTo(r.location);
                 //s += " " + (-25.0/m.distanceSquaredTo(r.location));
