@@ -731,7 +731,10 @@ public abstract class Robot {
     }
     
 
+    int numNonFrustratedMoves = 0;
     MapLocation lastNavEndpoint = null;
+    MapLocation lastNavUse = null;
+    
     public void nav(MapLocation to) throws GameActionException {
         int[] rawCosts;
         /*
@@ -765,6 +768,7 @@ public abstract class Robot {
         int b0 = Clock.getBytecodeNum();
         
         MapLocation me = rc.getLocation();
+        if(!me.equals(lastNavUse)) frustration = 1;
         int myx = me.x, myy = me.y;
         int mapWidth = rc.getMapWidth();
         int mapHeight = rc.getMapHeight();
@@ -850,8 +854,6 @@ public abstract class Robot {
         int r87 = (onMapX8 && onMapY7)?rc.senseRubble(me.translate(1,0))/frustration+10:1000;
         int r77 = (onMapX7 && onMapY7)?rc.senseRubble(me.translate(0,0))/frustration+10:1000;
 
-
-
         //bytecode so far = 1553;
         int b1 = Clock.getBytecodeNum();
         
@@ -936,6 +938,7 @@ public abstract class Robot {
         if(recent == null) recent = me;
         
         //navRecent
+        /*
         MapLocation l=recent;
         if(l!=null){switch((l.x-myx)*13+(l.y-myy)){
         case -14:r66+=400;r67+=400;r76+=400;break;
@@ -947,7 +950,7 @@ public abstract class Robot {
         case 1:r68+=400;r88+=400;r78+=400;r77+=400;break;
         case 13:r86+=400;r88+=400;r87+=400;r77+=400;break;
         default:break;}}
-        
+        */
         //nav3
         
         int c25 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(-5,-2)));
@@ -980,20 +983,15 @@ public abstract class Robot {
         int cc7 = 10 * (int)Math.sqrt(to.distanceSquaredTo(me.translate(5,0)));
         
         if(lastNavEndpoint != null) {
-            /*
             Direction lastD = null;
             Direction currentD = me.directionTo(to);
             if(lastMoveTowardTarget != null) 
                 lastD = me.directionTo(lastMoveTowardTarget);
-            if(lastMoveTowardTarget == null || lastD==currentD || lastD==currentD.rotateLeft() || lastD==currentD.rotateRight()) {
-                //navRecent2
-                switch((lastNavEndpoint.x - myx)*13+(lastNavEndpoint.y - myy)) {
-                case -67:c25-=400;break;case -63:c29-=400;break;case -31:c52-=400;break;case -21:c5c-=400;break;case 21:c92-=400;break;case 31:c9c-=400;break;case 63:cc5-=400;break;case 67:cc9-=400;break;case -66:c26-=400;break;case -64:c28-=400;break;case -18:c62-=400;break;case -8:c6c-=400;break;case 8:c82-=400;break;case 18:c8c-=400;break;case 64:cc6-=400;break;case 66:cc8-=400;break;case -65:c27-=400;break;case -55:c34-=400;break;case -49:c3a-=400;break;case -43:c43-=400;break;case -35:c4b-=400;break;case -5:c72-=400;break;case 5:c7c-=400;break;case 35:ca3-=400;break;case 43:cab-=400;break;case 49:cb4-=400;break;case 55:cba-=400;break;case 65:cc7-=400;break;case -54:c25-=400;break;case -50:c29-=400;break;case -30:c52-=400;break;case -22:c5c-=400;break;case 22:c92-=400;break;case 30:c9c-=400;break;case 50:cc5-=400;break;case 54:cc9-=400;break;case -42:c34-=400;break;case -36:c3a-=400;break;case 36:ca3-=400;break;case 42:cab-=400;break;case -53:c26-=400;break;case -51:c28-=400;break;case -17:c62-=400;break;case -9:c6c-=400;break;case 9:c82-=400;break;case 17:c8c-=400;break;case 51:cc6-=400;break;case 53:cc8-=400;break;case -52:c27-=400;break;case -4:c72-=400;break;case 4:c7c-=400;break;case 52:cc7-=400;break;case -41:c34-=400;break;case -37:c3a-=400;break;case -29:c43-=400;break;case -23:c4b-=400;break;case 23:ca3-=400;break;case 29:cab-=400;break;case 37:cb4-=400;break;case 41:cba-=400;break;case -40:c26-=400;break;case -38:c28-=400;break;case -16:c62-=400;break;case -10:c6c-=400;break;case 10:c82-=400;break;case 16:c8c-=400;break;case 38:cc6-=400;break;case 40:cc8-=400;break;case -39:c27-=400;break;case -3:c72-=400;break;case 3:c7c-=400;break;case 39:cc7-=400;break;case -28:c34-=400;break;case -24:c3a-=400;break;case 24:ca3-=400;break;case 28:cab-=400;break;case -27:c34-=400;break;case -25:c3a-=400;break;case -15:c43-=400;break;case -11:c4b-=400;break;case 11:ca3-=400;break;case 15:cab-=400;break;case 25:cb4-=400;break;case 27:cba-=400;break;case -26:c27-=400;break;case -2:c72-=400;break;case 2:c7c-=400;break;case 26:cc7-=400;break;case -14:c34-=400;break;case -12:c3a-=400;break;case 12:ca3-=400;break;case 14:cab-=400;break;case -13:c27-=400;break;case -1:c72-=400;break;case 1:c7c-=400;break;case 13:cc7-=400;break;case 0:c27-=400;break;default:break;
-                }
-                //end navRecent2
+            if(!(lastMoveTowardTarget == null || lastD==currentD || lastD==currentD.rotateLeft() || lastD==currentD.rotateRight())) {
+                //this is a new movement target, so we reset the frustration.
+                //frustration = 1;
             }
-            */
-            rc.setIndicatorDot(lastNavEndpoint, 0, 255, 255);
+            //rc.setIndicatorDot(lastNavEndpoint, 0, 255, 255);
         }
         
         b=c25; if(c26<b) b=c26; if(c34<b) b=c34; int c35=b+r35;
@@ -1149,9 +1147,19 @@ public abstract class Robot {
         if(c68<b) {b=c68; bestD = Direction.NORTHWEST;}
         if(rc.canMove(bestD)) {
             rc.move(bestD);
-            frustration = 1;
-        } else
-            frustration = 1;
+            //frustration = 1;
+        } else {
+            //frustration = 1;
+        }
+        if(recent != null && !recent.equals(me) && rc.getLocation().isAdjacentTo(recent)) {
+            frustration += 2;
+            numNonFrustratedMoves = 0;
+        } else {
+            this.numNonFrustratedMoves++;
+            if(numNonFrustratedMoves > 2)
+                frustration = 1;
+        }
+        
         rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
 
         int b5 = Clock.getBytecodeNum();
@@ -1236,12 +1244,14 @@ public abstract class Robot {
         if(prev!=null) rc.setIndicatorLine(prev, current, 0, 255, 255);
         prev=current;
         }
+        lastNavEndpoint=prev;
 
         //end navpretty
-        lastNavEndpoint=prev;
         lastMoveTowardTarget = to;
+        lastNavUse = rc.getLocation();
         
         int b6 = Clock.getBytecodeNum();
-        rc.setIndicatorString("init "+(b1-b0)+" r "+(b2-b1)+" i "+(b3-b2) + " i2 "+(b4-b3)+" m "+(b5-b4)+" f "+(b6-b5));
+        //rc.setIndicatorString("init "+(b1-b0)+" r "+(b2-b1)+" i "+(b3-b2) + " i2 "+(b4-b3)+" m "+(b5-b4)+" f "+(b6-b5));
+        rc.setIndicatorString("fr "+frustration+" t "+this.numNonFrustratedMoves);
     }
 }
