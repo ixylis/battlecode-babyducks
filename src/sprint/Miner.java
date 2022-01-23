@@ -188,7 +188,7 @@ public class Miner extends Robot {
         } else if(adjacentLead[bestDir] > 0) {
             return;
         } else {
-            MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(MINER.visionRadiusSquared,2);
+            MapLocation[] pbLocs = rc.senseNearbyLocationsWithLead(MINER.visionRadiusSquared,12);
             boolean[] ignorablePb = new boolean[pbLocs.length];
             for(int i=0;i<pbLocs.length;i++) {
                 MapLocation pb = pbLocs[i];
@@ -199,7 +199,7 @@ public class Miner extends Robot {
                 for(RobotInfo r : nearby) {
                     if(r.type == MINER) {
                         if(r.location.distanceSquaredTo(pb) < rc.getLocation().distanceSquaredTo(pb)) {
-                            ignorablePb[i] = true;
+                            //ignorablePb[i] = false;
                             break;
                         }
                     }
@@ -372,6 +372,8 @@ public class Miner extends Robot {
         }
 
 
+    MapLocation mu1,mu2,mu3,mu4;
+    int planMovementCounter = 0;
     private void planMovement() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam().opponent());
         RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
@@ -387,18 +389,23 @@ public class Miner extends Robot {
                 default:
             }
         }
+        MapLocation mh = rc.getLocation();
+        for(int i=0;i<3;i++)
+            mh = mh.add(mh.directionTo(home));
+        //setMovementCostsFromLocation10(mh);
         //MapLocation recentLoc = recentLocations[(recentLocationsIndex+9)%10];
         for(RobotInfo r : nearby) {
             if(r.type == MINER) {
                 setMovementCostsFromLocation2(r.location);
             }
         }
-        for(MapLocation m : recentLocations) {
+        for(int i=6;i<7;i++) {
+            MapLocation m = recentLocations[(recentLocationsIndex+6)%10];
             if(m!=null && me.isWithinDistanceSquared(m, 20))
                 setMovementCostsFromLocation2(m);
         }
         MapLocation m;int ux,uy;
-        m = super.getNearestUnexploredChunk(rc.getLocation().translate(4,4));
+        if(planMovementCounter%4==0 || mu1==null) mu1 = super.getNearestUnexploredChunk(rc.getLocation().translate(4,4));m=mu1;
         if(m==null) return;
         ux=m.x-myx;uy=m.y-myy;
         c9c+=(ux+-2)*(ux+-2)+(uy+-5)*(uy+-5);
@@ -409,7 +416,9 @@ public class Miner extends Robot {
         cab+=(ux+-3)*(ux+-3)+(uy+-4)*(uy+-4);
         cba+=(ux+-4)*(ux+-4)+(uy+-3)*(uy+-3);
         cc7+=(ux+-5)*(ux+-5)+(uy+0)*(uy+0);
-        m = super.getNearestUnexploredChunk(rc.getLocation().translate(4,-4));ux=m.x-myx;uy=m.y-myy;
+        if(planMovementCounter%4==1 || mu2==null) mu2 = super.getNearestUnexploredChunk(rc.getLocation().translate(4,-4));m=mu2;
+        if(m==null) return;
+        ux=m.x-myx;uy=m.y-myy;
         c92+=(ux+-2)*(ux+-2)+(uy+5)*(uy+5);
         cc5+=(ux+-5)*(ux+-5)+(uy+2)*(uy+2);
         c82+=(ux+-1)*(ux+-1)+(uy+5)*(uy+5);
@@ -417,14 +426,18 @@ public class Miner extends Robot {
         c72+=(ux+0)*(ux+0)+(uy+5)*(uy+5);
         ca3+=(ux+-3)*(ux+-3)+(uy+4)*(uy+4);
         cb4+=(ux+-4)*(ux+-4)+(uy+3)*(uy+3);
-        m = super.getNearestUnexploredChunk(rc.getLocation().translate(-4,-4));ux=m.x-myx;uy=m.y-myy;
+        if(planMovementCounter%4==2 || mu3==null) mu3 = super.getNearestUnexploredChunk(rc.getLocation().translate(-4,-4));m=mu3;
+        if(m==null) return;
+        ux=m.x-myx;uy=m.y-myy;
         c25+=(ux+5)*(ux+5)+(uy+2)*(uy+2);
         c52+=(ux+2)*(ux+2)+(uy+5)*(uy+5);
         c26+=(ux+5)*(ux+5)+(uy+1)*(uy+1);
         c62+=(ux+1)*(ux+1)+(uy+5)*(uy+5);
         c34+=(ux+4)*(ux+4)+(uy+3)*(uy+3);
         c43+=(ux+3)*(ux+3)+(uy+4)*(uy+4);
-        m = super.getNearestUnexploredChunk(rc.getLocation().translate(-4,4));ux=m.x-myx;uy=m.y-myy;
+        if(planMovementCounter%4==3 || mu4==null) mu4 = super.getNearestUnexploredChunk(rc.getLocation().translate(-4,4));m=mu4;
+        if(m==null) return;
+        ux=m.x-myx;uy=m.y-myy;
         c29+=(ux+5)*(ux+5)+(uy+-2)*(uy+-2);
         c5c+=(ux+2)*(ux+2)+(uy+-5)*(uy+-5);
         c28+=(ux+5)*(ux+5)+(uy+-1)*(uy+-1);
@@ -432,6 +445,7 @@ public class Miner extends Robot {
         c27+=(ux+5)*(ux+5)+(uy+0)*(uy+0);
         c3a+=(ux+4)*(ux+4)+(uy+-3)*(uy+-3);
         c4b+=(ux+3)*(ux+3)+(uy+-4)*(uy+-4);
+        planMovementCounter++;
     }
     private int[] suitability = new int[8];
     private void determineMovementSuitability() throws GameActionException {
