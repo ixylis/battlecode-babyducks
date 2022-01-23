@@ -22,7 +22,7 @@ public class Soldier extends Robot {
         if (rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
 
     }
 
@@ -144,7 +144,7 @@ public class Soldier extends Robot {
         }
         MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
         double spaceFactor = 10 * home.distanceSquaredTo(myLoc) /
-                (double) (max(rc.getMapWidth() - home.x - 1, home.x) *
+                (double)(max(rc.getMapWidth() - home.x - 1, home.x) *
                         max(rc.getMapHeight() - home.y - 1, home.y));
         if (!(toMove != null && enemyAdvanceStrength * spaceFactor < myAdvanceStrength + 1000 / (10 + rc.senseRubble(rc.getLocation().add(toMove))) && rc.isActionReady() && rc.getMovementCooldownTurns() < 8)) {
             toMove = null; //don't advance if condition isn't met.
@@ -228,55 +228,13 @@ public class Soldier extends Robot {
         rc.setIndicatorString("[][] = " + (b1 - b) + " normal " + (b2 - b1) + " " + (b3 - b2) + " read " + (b4 - b3) + " " + c77);
     }
 
-    boolean running = false;
     boolean healing = false;
     boolean dying = false, there = false;
 
     private void movement() throws GameActionException {
-
-        MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
-
-        if (rc.getHealth() < 10 && !running) {
-            running = true;
-        }
-
-        if (running) {
-            if (home.distanceSquaredTo(myLoc) >
-                    ARCHON.actionRadiusSquared ||
-                    rc.senseNearbyRobots(MINER.visionRadiusSquared,
-                            rc.getTeam().opponent()).length > 0)
-                moveToward(home);
-        }
-
-        if (myLoc.distanceSquaredTo(home) <=
-                ARCHON.actionRadiusSquared) {
-            if (!healing) {
-                int healees = rc.readSharedArray(INDEX_HEALING);
-                if (healees < MAX_HEALS) {
-                    healing = true;
-                    dying = false;
-                    rc.writeSharedArray(INDEX_HEALING, healees + 1);
-                } else {
-                    healing = false;
-                    running = false;
-                    dying = true;
-                }
-            }
-
-            if (healing) {
-                if (rc.getHealth() >= 49) {
-                    healing = false;
-                    running = false;
-                    int healees = rc.readSharedArray(INDEX_HEALING);
-                    rc.writeSharedArray(INDEX_HEALING, healees - 1);
-                } else {
-                    return;
-                }
-            }
-        }
-
-        if (dying) {
-            if (!there) {
+        if(dying) {
+            if(!there) {
+                MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
                 moveToward(home);
 
                 if (home.distanceSquaredTo(myLoc) <= ARCHON.visionRadiusSquared) {
@@ -285,7 +243,7 @@ public class Soldier extends Robot {
                 }
             }
 
-            if (there) {
+            if(there) {
                 MapLocation[] nonlead =
                         rc.getAllLocationsWithinRadiusSquared(myLoc,
                                 SOLDIER.visionRadiusSquared);
@@ -293,29 +251,56 @@ public class Soldier extends Robot {
                 int best = movementTarget == null ? 10000 :
                         myLoc.distanceSquaredTo(movementTarget);
 
-                for (MapLocation loc : nonlead) {
-                    if (rc.senseLead(loc) > 0) continue;
+                for(MapLocation loc : nonlead) {
+                    if(rc.senseLead(loc) > 0) continue;
 
                     int dist = myLoc.distanceSquaredTo(loc);
 
-                    if (dist < best) {
+                    if(dist < best) {
                         movementTarget = loc;
                         best = dist;
                     }
                 }
 
-                if (movementTarget != null) {
+                if(movementTarget != null) {
                     moveToward(movementTarget);
                 } else {
                     rc.disintegrate();
                 }
 
-                if (rc.senseLead(myLoc) == 0) {
+                if(rc.senseLead(myLoc) == 0) {
                     rc.disintegrate();
                 }
             }
 
             return;
+        }
+
+        if(rc.getHealth() < 10) {
+            if(!healing) {
+                int healees = rc.readSharedArray(INDEX_HEALING);
+                if (healees < MAX_HEALS) {
+                    healing = true;
+                    rc.writeSharedArray(INDEX_HEALING, healees + 1);
+                } else {
+                    dying = true;
+                }
+            }
+        }
+
+        if(healing) {
+            if(rc.getHealth() >= 49) {
+                healing = false;
+                int healees = rc.readSharedArray(INDEX_HEALING);
+                rc.writeSharedArray(INDEX_HEALING, healees - 1);
+            } else {
+                MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
+                if (home.distanceSquaredTo(myLoc) >
+                        ARCHON.actionRadiusSquared)
+                    moveToward(home);
+
+                return;
+            }
         }
 
         if (micro())
