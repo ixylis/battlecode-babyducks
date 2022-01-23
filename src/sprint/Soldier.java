@@ -15,6 +15,7 @@ public class Soldier extends Robot {
     private MapLocation movementTarget = null;
 
     public void turn() throws GameActionException {
+        rc.disintegrate();
         if (rc.isActionReady())
             attack();
         if (rc.isMovementReady())

@@ -59,6 +59,11 @@ public class Archon extends Robot {
     boolean die = false;
 
     public void turn() throws GameActionException {
+        int income = rc.readSharedArray(INDEX_INCOME) / 2;
+        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
+        //if(rc.getRoundNum() > 500 && rc.getTeamLeadAmount(rc.getTeam()) < rc.getTeamLeadAmount(rc.getTeam().opponent())) rc.resign();
+        //if(liveMiners < 18 && rc.getTeamLeadAmount(rc.getTeam())>RobotType.MINER.buildCostLead) buildMiner();
+        //if(DEBUG) return;
         int money = rc.getTeamLeadAmount(rc.getTeam());
         int rawIncome =  money - lastTurnMoney;
         lastTurnMoney = money;
@@ -147,8 +152,6 @@ public class Archon extends Robot {
             }
         }
 
-        int income = rc.readSharedArray(INDEX_INCOME) / 2;
-        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
         if (DEBUG) {
             MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " enemy=" + enemyLoc);
