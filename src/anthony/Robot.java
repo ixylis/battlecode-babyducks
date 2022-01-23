@@ -511,11 +511,11 @@ public abstract class Robot {
         }
     }
     void updateEnemySoliderLocations() throws GameActionException {
-        //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_SOLDIER_CHUNKS];
+        //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_UNIT_CHUNKS];
         int[] enemySoldierChunks = new int[NUM_ENEMY_SOLDIER_CHUNKS];
         
         for(int i=0;i<NUM_ENEMY_SOLDIER_CHUNKS;i++) {
-            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION+i));
+            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION+i));
             int x = rc.readSharedArray(INDEX_ENEMY_LOCATION+i);
             enemySoldierChunks[i] = x&0xff;
             

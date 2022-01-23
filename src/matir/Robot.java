@@ -9,23 +9,66 @@ import static java.lang.Math.sqrt;
 
 public abstract class Robot {
     public static final int SEED = 63;
+    public static final int MAX_LEAD = 1000; // trigger to start building watchtowers
+    public static final int MAX_HEALS = 3;
+    public static final double HEALTH_FACTOR = 0.2;
+
     public static final int INDEX_MY_HQ = 0; //4 ints for friendly HQ locations
     public static final int INDEX_ENEMY_HQ = 4; //4 ints for known enemy HQ locs
     public static final int INDEX_LIVE_MINERS = 8;
     public static final int INDEX_INCOME = 9;
-    public static final int INDEX_ENEMY_SOLDIER_LOCATION = 10;//10 ints for recent enemy soldier locations
-    public static final int NUM_ENEMY_SOLDIER_CHUNKS = 10;
-    public static final int INDEX_ENEMY_MINER_LOCATION =
-            INDEX_ENEMY_SOLDIER_LOCATION + NUM_ENEMY_SOLDIER_CHUNKS;
-    public static final int INDEX_ENEMY_MINER_CHUNKS = 4;
-    public static final int INDEX_HQ_SPENDING = 20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
-    public static final int MAX_LEAD = 1000; // trigger to start building watchtowers
-    public static final int INDEX_EXPLORED_CHUNKS = 24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
-    public static final int INDEX_ARCHON_LOC = 29;
-    public static final int INDEX_HEALING = 30;
-    public static final int MAX_HEALS = 3;
-    public static final double HEALTH_FACTOR = 0.2;
-    public static final int INDEX_HQBAD = 55;
+    public static final int INDEX_ENEMY_UNIT_LOCATION = 10;
+    /*
+    Locations of enemy soldiers, sages, and watchtowers
+    Each chunk is 16 = 3 + 2 + 1 + 1 + 9 bits ssssstelllllllll
+    lllllllll = location = 20x + y, counting 3x3 blocks as units
+    e = era = (round >> 4) & 1
+    t = totality of information seen = 0 if partial, 1 if total
+    sssss = estimated strength of units in the block (in soldiers)
+    SPECIAL:
+    Unused chunks contain 0xFFFF
+     */
+    public static final int NUM_ENEMY_UNIT_CHUNKS = 10; // can be decreased
+    public static final int INDEX_ENEMY_ETC_LOCATION =
+            INDEX_ENEMY_UNIT_LOCATION + NUM_ENEMY_UNIT_CHUNKS;
+    /*
+    Locations of enemy miners, builders, and labs.
+    Each int contains two bytes, and each byte is elllllll
+    e = era
+    lllllll = 10x + y is the location
+    Unused bytes contain 0xFF
+     */
+    public static final int NUM_ENEMY_ETC_CHUNKS = 3; // can be modified
+    public static final int INDEX_MY_UNIT_LOCATIONS =
+            INDEX_ENEMY_ETC_LOCATION + NUM_ENEMY_ETC_CHUNKS;
+    /*
+    Locations of enemy soldiers, sages, and watchtowers
+    Each chunk is 16 = 2 + 1 + 2 + 9 bits abrrssqlllllllll
+    lllllllll = location = 20x + y, counting 3x3 blocks as units
+    q = who is stronger (0 if we are stronger, 1 if they are)
+    rr = current rubble (0-10/11-25/26-50/51-100)
+    ss = relative strength ratio in powers of 2^0.25
+    a = relative advance rubble (0 if lower rubble on advancing, 1 if higher)
+    b = relative retreat rubble (0 if lower rubble on retreating, 1 if higher)
+    SPECIAL:
+    Unused chunks contain 0xFFFF
+     */
+    public static final int NUM_MY_UNIT_CHUNKS = 20;
+    public static final int INDEX_LEAD_AMOUNT =
+            INDEX_MY_UNIT_LOCATIONS + NUM_MY_UNIT_CHUNKS;
+    /* 6x6 4 bit blocks of size at most 10x10 (scaling with map size)
+        4 bits: mxyz
+        xyz = least power of 4 greater than lead amount in block
+        m = 0 if accepting more miners, 1 if saturated
+            (empty regions marked 1 once explored)
+    * */
+    public static final int NUM_LEAD_AMOUNT = 9;
+    public static final int INDEX_EXPLORED_CHUNKS = 51; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
+    public static final int INDEX_ARCHON_LOC = 55;
+    public static final int INDEX_HQ_SPENDING = 56; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
+    public static final int INDEX_SYMMETRY = 60;
+    public static final int INDEX_HQBAD = 61;
+    public static final int INDEX_HEALING = 62;
     public static final int INDEX_RELOCATE = 63;
 
     MapLocation myLoc;
@@ -193,204 +236,6 @@ public abstract class Robot {
         return;
     }
 
-    public void moveTowardOld2(MapLocation to) throws GameActionException {
-        if (Robot.DEBUG) {
-            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
-            //System.out.println("Navigating toward " + l);
-        }
-        MapLocation me = rc.getLocation();
-        int dx = to.x - me.x, dy = to.y - me.y;
-        Direction ideal = null;
-        Direction ok = null, ok2 = null;
-        Direction mediocre = null, mediocre2 = null;
-        Direction sad = null, sad2 = null;
-        boolean onDiagonal = false;
-        boolean onEdge = false;
-        if (dx < 0) {
-            if (dy < 0) {
-                ideal = Direction.SOUTHWEST;
-                if (dx < dy) {
-                    ok = Direction.WEST;
-                    ok2 = Direction.NORTHWEST;
-                    mediocre = Direction.SOUTH;
-                } else if (dx > dy) {
-                    ok = Direction.SOUTH;
-                    ok2 = Direction.SOUTHEAST;
-                    mediocre = Direction.WEST;
-                } else {
-                    onDiagonal = true;
-                    ok = Direction.WEST;
-                    ok2 = Direction.SOUTH;
-                    mediocre = Direction.NORTHWEST;
-                    mediocre2 = Direction.SOUTHEAST;
-                }
-            } else if (dy > 0) {
-                ideal = Direction.NORTHWEST;
-                if (dx < -dy) {
-                    ok = Direction.WEST;
-                    ok2 = Direction.SOUTHWEST;
-                    mediocre = Direction.NORTH;
-                } else if (dx > -dy) {
-                    ok = Direction.NORTH;
-                    ok2 = Direction.NORTHEAST;
-                    mediocre = Direction.WEST;
-                } else {
-                    onDiagonal = true;
-                    ok = Direction.WEST;
-                    ok2 = Direction.NORTH;
-                    mediocre = Direction.NORTHEAST;
-                    mediocre2 = Direction.SOUTHWEST;
-                }
-            } else {
-                ideal = Direction.WEST;
-                ok = Direction.NORTHWEST;
-                ok2 = Direction.SOUTHWEST;
-                mediocre = Direction.NORTH;
-                mediocre2 = Direction.SOUTH;
-                onEdge = true;
-            }
-        } else if (dx > 0) {
-            if (dy < 0) {
-                ideal = Direction.SOUTHEAST;
-                if (-dx < dy) {
-                    ok = Direction.EAST;
-                    ok2 = Direction.NORTHEAST;
-                    mediocre = Direction.SOUTH;
-                } else if (-dx > dy) {
-                    ok = Direction.SOUTH;
-                    ok2 = Direction.SOUTHWEST;
-                    mediocre = Direction.EAST;
-                } else {
-                    onDiagonal = true;
-                    ok = Direction.EAST;
-                    ok2 = Direction.SOUTH;
-                    mediocre = Direction.NORTHEAST;
-                    mediocre2 = Direction.SOUTHWEST;
-                }
-            } else if (dy > 0) {
-                ideal = Direction.NORTHEAST;
-                if (-dx < -dy) {
-                    ok = Direction.EAST;
-                    ok2 = Direction.SOUTHEAST;
-                    mediocre = Direction.NORTH;
-                } else if (-dx > -dy) {
-                    ok = Direction.NORTH;
-                    ok2 = Direction.NORTHWEST;
-                    mediocre = Direction.EAST;
-                } else {
-                    onDiagonal = true;
-                    ok = Direction.EAST;
-                    ok2 = Direction.NORTH;
-                    mediocre = Direction.NORTHWEST;
-                    mediocre2 = Direction.SOUTHEAST;
-                }
-            } else {
-                ideal = Direction.EAST;
-                ok = Direction.NORTHEAST;
-                ok2 = Direction.SOUTHEAST;
-                mediocre = Direction.NORTH;
-                mediocre2 = Direction.SOUTH;
-                onEdge = true;
-            }
-        } else {
-            if (dy < 0) {
-                ideal = Direction.SOUTH;
-                ok = Direction.SOUTHWEST;
-                ok2 = Direction.SOUTHEAST;
-                mediocre = Direction.WEST;
-                mediocre2 = Direction.EAST;
-                onEdge = true;
-            } else if (dy > 0) {
-                ideal = Direction.NORTH;
-                ok = Direction.NORTHWEST;
-                ok2 = Direction.NORTHEAST;
-                mediocre = Direction.WEST;
-                mediocre2 = Direction.EAST;
-                onEdge = true;
-            } else {
-                return; //we are at the destination!
-            }
-        }
-        MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9) % 10];
-        Direction lastMoveDir = (recentLoc == null || to != lastMoveTowardTarget) ? null : me.directionTo(recentLoc);
-        lastMoveTowardTarget = to;
-        while (frustration < 111) {
-            rc.setIndicatorString("frustration " + frustration + " " + ideal);
-            Direction d = ideal;
-            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
-                rc.move(d);
-                frustration = 0;
-                return;
-            }
-            d = ok;
-            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
-                rc.move(d);
-                frustration = onDiagonal ? 15 : 5;
-                return;
-            }
-            d = ok2;
-            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
-                rc.move(d);
-                frustration = onDiagonal ? 15 : 5;
-                return;
-            }
-            d = mediocre;
-            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
-                rc.move(d);
-                frustration += onEdge ? 20 : 15;
-                return;
-            }
-            d = mediocre2;
-            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
-                rc.move(d);
-                frustration += 20;
-                return;
-            }
-            frustration += 10;
-        }
-        frustration = 100;
-    }
-
-    public void moveTowardOld(MapLocation l) throws GameActionException {
-        if (Robot.DEBUG) {
-            rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
-            //System.out.println("Navigating toward " + l);
-        }
-        if (!rc.isMovementReady()) return;
-        if (rc.getLocation().equals(l)) return;
-        if (rc.getLocation().isAdjacentTo(l)) {
-            Direction d = rc.getLocation().directionTo(l);
-            if (rc.canMove(d))
-                rc.move(d);
-            return;
-        }
-        moveInDirection(rc.getLocation().directionTo(l));
-    }
-
-    public void moveTowardMatir(MapLocation l) throws GameActionException {
-        moveTowardMatir(l, 0.05);
-    }
-
-    public void moveTowardMatir(MapLocation l, double randomness) throws GameActionException {
-        if (Robot.DEBUG) {
-            rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
-            //System.out.println("Navigating toward " + l);
-        }
-        if (!rc.isMovementReady()) return;
-        if (rc.getLocation().equals(l)) return;
-        if (rc.getLocation().isAdjacentTo(l)) {
-            Direction d = rc.getLocation().directionTo(l);
-            if (rc.canMove(d))
-                rc.move(d);
-            return;
-        }
-        Direction d = rc.getLocation().directionTo(l);
-        Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
-        Direction moveDir = rng.nextDouble() < randomness ?
-                randDirByWeight(dd, new TargetWeight(l)) : bestMove(d);
-        if (rc.canMove(moveDir)) rc.move(moveDir);
-    }
-
     public Direction randDirByWeight(Direction[] dirs, Weightage wt) {
 
         double[] cwt = new double[dirs.length + 1];
@@ -413,35 +258,20 @@ public abstract class Robot {
         return dirs[i - 1];
     }
 
-    private MapLocation wanderTarget = null;
-    private int lastWanderProgress = 0; //the last turn which we wandered closer to our destination
-
-    public void wander() throws GameActionException {
-        while (wanderTarget == null || rc.getLocation().distanceSquaredTo(wanderTarget) < 10) {
-            wanderTarget = rng.nextDouble() < 0.5 ?
-                    corners[rng.nextInt(4)] :
-                    new MapLocation(rng.nextInt(rc.getMapWidth()), rng.nextInt(rc.getMapHeight()));
-            lastWanderProgress = rc.getRoundNum();
-        }
-        MapLocation old = rc.getLocation();
-        moveTowardMatir(wanderTarget, 1);
-        if (rc.getLocation().distanceSquaredTo(wanderTarget) < old.distanceSquaredTo(wanderTarget))
-            lastWanderProgress = rc.getRoundNum();
-    }
-
-    public static final int chunkToInt(MapLocation l) {
+    public final int chunkToInt(MapLocation l) {
         return ((l.x >> 2) << 4) | (l.y >> 2);
     }
 
-    public static final MapLocation intToChunk(int x) {
-        return new MapLocation((((x >> 4) & 0xf) << 2) + 1, ((x & 0xf) << 2) + 1);
+    public final MapLocation intToChunk(int x) {
+        return new MapLocation((((x >> 4) & 0xf) << 2) + 1 + rng.nextInt(1),
+                ((x & 0xf) << 2) + 1 + rng.nextInt(1));
     }
 
-    public static final int locToInt(MapLocation l) {
+    public final int locToInt(MapLocation l) {
         return (l.x << 7) | l.y | 0x4000;
     }
 
-    public static final MapLocation intToLoc(int x) {
+    public final MapLocation intToLoc(int x) {
         return new MapLocation((x >> 7) & 0x7f, x & 0x7f);
     }
 
@@ -497,7 +327,7 @@ public abstract class Robot {
         MapLocation[] newEnemyHQs = new MapLocation[4];
         int newIndex = 0;
         for (int i = 0; i < 4; i++) {
-            MapLocation l = Robot.intToLoc(rc.readSharedArray(i + Robot.INDEX_ENEMY_HQ));
+            MapLocation l = intToLoc(rc.readSharedArray(i + Robot.INDEX_ENEMY_HQ));
             if (rc.canSenseLocation(l))
                 needsUpdating[i] = l;
         }
@@ -520,7 +350,7 @@ public abstract class Robot {
             for (int i = 0; i < 4; i++) {
                 if (rc.readSharedArray(i + Robot.INDEX_ENEMY_HQ) > 0 && needsUpdating[i] == null)
                     continue;
-                rc.writeSharedArray(i + Robot.INDEX_ENEMY_HQ, Robot.locToInt(newEnemyHQs[newIndex]));
+                rc.writeSharedArray(i + Robot.INDEX_ENEMY_HQ, locToInt(newEnemyHQs[newIndex]));
                 needsUpdating[i] = null;
                 break;
             }
@@ -532,38 +362,40 @@ public abstract class Robot {
     }
 
     void removeOldEnemySoldierLocations() throws GameActionException {
-        for (int i = INDEX_ENEMY_SOLDIER_LOCATION; i < INDEX_ENEMY_SOLDIER_LOCATION + NUM_ENEMY_SOLDIER_CHUNKS; i++) {
+        for (int i = INDEX_ENEMY_UNIT_LOCATION; i < INDEX_ENEMY_UNIT_LOCATION + NUM_ENEMY_UNIT_CHUNKS; i++) {
             int x = rc.readSharedArray(i);
             if ((x & 0xff) == 0xff) continue;
-            if (((0x40 + (rc.getRoundNum() & 0x3f) - (x >> 8)) & 0x3f) > 8 || rc.getRoundNum() < 2)
+            if (((rc.getRoundNum() >> 4) & 1) != (x >> 8) || rc.getRoundNum() < 2)
                 rc.writeSharedArray(i, 0xff);
         }
     }
 
     void updateEnemySoliderLocations() throws GameActionException {
-        //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_SOLDIER_CHUNKS];
-        int[] enemySoldierChunks = new int[NUM_ENEMY_SOLDIER_CHUNKS];
+        //MapLocation[] enemySoldiers = new MapLocation[NUM_ENEMY_UNIT_CHUNKS];
+        int[] enemySoldierChunks = new int[NUM_ENEMY_UNIT_CHUNKS];
 
-        for (int i = 0; i < NUM_ENEMY_SOLDIER_CHUNKS; i++) {
-            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION+i));
-            int x = rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION + i);
+        for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION+i));
+            int x = rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i);
             enemySoldierChunks[i] = x & 0xff;
 
         }
         for (RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
-            if (r.type == RobotType.SOLDIER || r.type == RobotType.WATCHTOWER || r.type == RobotType.MINER) {
-                int x = Robot.chunkToInt(r.location);
+            if (isAttacker(r)) {
+                int x = chunkToInt(r.location);
                 boolean found = false;
-                for (int i = 0; i < NUM_ENEMY_SOLDIER_CHUNKS; i++) {
+
+                for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
                     if (enemySoldierChunks[i] == x) {
-                        found = true;
                         break;
                     }
                 }
+
                 if (!found) {
-                    for (int i = 0; i < NUM_ENEMY_SOLDIER_CHUNKS; i++) {
+                    for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
                         if (enemySoldierChunks[i] == 0xff) {//0xff is the empty slot code
-                            rc.writeSharedArray(i + Robot.INDEX_ENEMY_SOLDIER_LOCATION, x | ((rc.getRoundNum() & 0x3f) << 8));
+                            rc.writeSharedArray(i + INDEX_ENEMY_UNIT_LOCATION,
+                                    x | (((rc.getRoundNum() >> 4) & 1) << 8));
                             return;
                         }
                     }
@@ -573,12 +405,29 @@ public abstract class Robot {
         }
     }
 
+    int power(RobotInfo r) {
+        if (!isAttacker(r)) return 0;
+        int raw = 0;
+        switch (r.type) {
+            case SAGE:
+                raw = 12;
+                break;
+            case SOLDIER:
+                raw = 10;
+                break;
+            case WATCHTOWER:
+                raw = 15;
+                break;
+        }
+        return raw * (1 + r.getHealth()) / 10;
+    }
+
     MapLocation getNearestEnemyChunk() throws GameActionException {
         MapLocation nearest = null;
-        for (int i = 0; i < NUM_ENEMY_SOLDIER_CHUNKS; i++) {
-            int x1 = rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION + i);
+        for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            int x1 = rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i);
             if (x1 == 0xff) continue;
-            MapLocation x = Robot.intToChunk(x1);
+            MapLocation x = intToChunk(x1);
             if (nearest == null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
                 nearest = x;
             }

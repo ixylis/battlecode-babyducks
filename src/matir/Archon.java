@@ -37,7 +37,7 @@ public class Archon extends Robot {
             rc.setIndicatorString(String.valueOf(i));
             rc.writeSharedArray(INDEX_HQBAD + i, (int) badness);
             rc.writeSharedArray(INDEX_MY_HQ + i,
-                    Robot.locToInt(rc.getLocation()));
+                    locToInt(rc.getLocation()));
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
@@ -150,7 +150,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME) / 2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
         if (DEBUG) {
-            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_UNIT_CHUNKS));
             rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " enemy=" + enemyLoc);
         }
 
@@ -180,8 +180,7 @@ public class Archon extends Robot {
                 soldiers++;
         }
 
-        super.removeOldEnemySoldierLocations();
-        super.updateEnemySoliderLocations();
+        if(rc.getRoundNum() % 16 == 0) removeOldEnemySoldierLocations();
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum() % 4) << 12) | (totalSpent >> 4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
         if (rc.getRoundNum() % 160 == 0) {
@@ -189,16 +188,16 @@ public class Archon extends Robot {
         }
         super.displayUnexploredChunks();
         /*
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 0)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 1)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 2)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 3)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 4)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 5)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 6)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 7)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 8)), 1, 255, 1);
-        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_SOLDIER_LOCATION + 9)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 0)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 1)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 2)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 3)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 4)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 5)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 6)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 7)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 8)), 1, 255, 1);
+        rc.setIndicatorDot(Robot.intToChunk(rc.readSharedArray(Robot.INDEX_ENEMY_UNIT_LOCATION + 9)), 1, 255, 1);
         */
         repair();
     }
