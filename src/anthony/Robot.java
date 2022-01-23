@@ -18,7 +18,11 @@ public abstract class Robot {
     public static final int INDEX_HQ_SPENDING=20; //one bit for is alive, two bits for round num mod 4, remainder for total lead spent.
     public static final int MAX_LEAD=1000; // trigger to start building watchtowers
     public static final int INDEX_EXPLORED_CHUNKS=24; //4 ints (64 bits, one for each sections of map, divide map into 8 sections each way)
+    public static final int INDEX_ARCHON_LOC = 29;
+    public static final int INDEX_HEALING = 30;
+    public static final int MAX_HEALS = 3;
     public static final double HEALTH_FACTOR = 0.2;
+    public static final int INDEX_LAB = 54; // 1 if saving lead for lab, 0 if lab is built
     public static final int INDEX_HQBAD = 55;
     public static final int INDEX_RELOCATE = 63;
 
@@ -120,8 +124,12 @@ public abstract class Robot {
                 }
             } catch(GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
-            } catch(Exception e) {
-                rc.setIndicatorString(e.getStackTrace()[0].toString());
+            } catch(RuntimeException e) {
+                try {
+                    rc.setIndicatorString(e.getStackTrace()[0].toString());
+                } catch(Exception f) {
+                    throw e;
+                }
                 //rc.setIndicatorString(e.toString());
             }
             Clock.yield();
@@ -735,14 +743,43 @@ public abstract class Robot {
     MapLocation lastNavEndpoint = null;
     MapLocation lastNavUse = null;
     int turnsFailedToMove = 0;
-    
+    int c25;
+    int c29;
+    int c52;
+    int c5c;
+    int c92;
+    int c9c;
+    int cc5;
+    int cc9;
+    int c26;
+    int c28;
+    int c62;
+    int c6c;
+    int c82;
+    int c8c;
+    int cc6;
+    int cc8;
+    int c27;
+    int c34;
+    int c3a;
+    int c43;
+    int c4b;
+    int c72;
+    int c7c;
+    int ca3;
+    int cab;
+    int cb4;
+    int cba;
+    int cc7;
+
+
     public void nav(MapLocation to) throws GameActionException {
         int[] rawCosts;
         /*
          * rawCosts[loc] = (rubble + 10) * (2 if occupied else 1)
          * double the cost for each space occupied by a robot
          */
-        
+
         //int[] heap = new int [121];
         //int[] costs = new int[121];
         //int heapi;
@@ -764,16 +801,16 @@ public abstract class Robot {
          * for each square, it's cost is the min of all adjacent cost + it's raw cost
          * for computing this min, a square outside of vision range is always cost = euclidean distance*10
          */
-        
+
 
         int b0 = Clock.getBytecodeNum();
-        
+
         MapLocation me = rc.getLocation();
         if(!me.equals(lastNavUse)) frustration = 1;
         int myx = me.x, myy = me.y;
         int mapWidth = rc.getMapWidth();
         int mapHeight = rc.getMapHeight();
-        
+
         boolean onMapX7 = true;boolean onMapY7 = true;
         boolean onMapX2 = myx + -5 >= 0;boolean onMapY2 = myy + -5 >= 0;
         boolean onMapX3 = myx + -4 >= 0;boolean onMapY3 = myy + -4 >= 0;
@@ -857,7 +894,7 @@ public abstract class Robot {
 
         //bytecode so far = 1553;
         int b1 = Clock.getBytecodeNum();
-        
+
         for(RobotInfo r : rc.senseNearbyRobots(20)) {
             switch((r.location.x - myx)*13 + (r.location.y - myy)) {
             case -54:r35*=1+frustration;continue;
@@ -933,11 +970,11 @@ public abstract class Robot {
 
             }
         }
-        
+
         int b2 = Clock.getBytecodeNum();
         MapLocation recent = recentLocations[(recentLocationsIndex + 9)%10];
         if(recent == null) recent = me;
-        
+
         //navRecent
         /*
         MapLocation l=recent;
@@ -953,40 +990,42 @@ public abstract class Robot {
         default:break;}}
         */
         //nav3
-        
-        int c25 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,-2))));
-        int c29 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,2))));
-        int c52 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-2,-5))));
-        int c5c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-2,5))));
-        int c92 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(2,-5))));
-        int c9c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(2,5))));
-        int cc5 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,-2))));
-        int cc9 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,2))));
-        int c26 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,-1))));
-        int c28 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,1))));
-        int c62 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-1,-5))));
-        int c6c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-1,5))));
-        int c82 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(1,-5))));
-        int c8c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(1,5))));
-        int cc6 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,-1))));
-        int cc8 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,1))));
-        int c27 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,0))));
-        int c34 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-4,-3))));
-        int c3a = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-4,3))));
-        int c43 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-3,-4))));
-        int c4b = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-3,4))));
-        int c72 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(0,-5))));
-        int c7c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(0,5))));
-        int ca3 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(3,-4))));
-        int cab = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(3,4))));
-        int cb4 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(4,-3))));
-        int cba = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(4,3))));
-        int cc7 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,0))));
-        
-        if(lastNavEndpoint != null) {
+
+        if(to!=null) {
+            c25 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,-2))));
+            c29 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,2))));
+            c52 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-2,-5))));
+            c5c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-2,5))));
+            c92 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(2,-5))));
+            c9c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(2,5))));
+            cc5 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,-2))));
+            cc9 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,2))));
+            c26 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,-1))));
+            c28 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,1))));
+            c62 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-1,-5))));
+            c6c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-1,5))));
+            c82 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(1,-5))));
+            c8c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(1,5))));
+            cc6 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,-1))));
+            cc8 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,1))));
+            c27 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-5,0))));
+            c34 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-4,-3))));
+            c3a = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-4,3))));
+            c43 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-3,-4))));
+            c4b = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(-3,4))));
+            c72 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(0,-5))));
+            c7c = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(0,5))));
+            ca3 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(3,-4))));
+            cab = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(3,4))));
+            cb4 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(4,-3))));
+            cba = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(4,3))));
+            cc7 = (int) (10 * Math.sqrt(to.distanceSquaredTo(me.translate(5,0))));
+
+        }
+        if(lastNavEndpoint != null && to!=null) {
             Direction lastD = null;
             Direction currentD = me.directionTo(to);
-            if(lastMoveTowardTarget != null) 
+            if(lastMoveTowardTarget != null)
                 lastD = me.directionTo(lastMoveTowardTarget);
             if(!(lastMoveTowardTarget == null || lastD==currentD || lastD==currentD.rotateLeft() || lastD==currentD.rotateRight())) {
                 //this is a new movement target, so we reset the frustration.
@@ -994,7 +1033,7 @@ public abstract class Robot {
             }
             //rc.setIndicatorDot(lastNavEndpoint, 0, 255, 255);
         }
-        
+
         b=c25; if(c26<b) b=c26; if(c34<b) b=c34; int c35=b+r35;
         b=c29; if(c28<b) b=c28; if(c3a<b) b=c3a; int c39=b+r39;
         b=c52; if(c62<b) b=c62; if(c43<b) b=c43; int c53=b+r53;
@@ -1064,7 +1103,7 @@ public abstract class Robot {
         b=c69; if(c89<b) b=c89; if(c79<b) b=c79; if(c68<b) b=c68; if(c88<b) b=c88; if(c67<b) b=c67; int c78=b+r78;
         b=c96; if(c98<b) b=c98; if(c97<b) b=c97; if(c86<b) b=c86; if(c88<b) b=c88; if(c76<b) b=c76; if(c78<b) b=c78; int c87=b+r87;
 
-        
+
         int b3 = Clock.getBytecodeNum();
         /*//round 2
         b=c96; if(c98<b) b=c98; if(c97<b) b=c97; if(c86<b) b=c86; if(c88<b) b=c88; if(c76<b) b=c76; if(c78<b) b=c78; if(c87<b) b=c87; c87=b+r87;
@@ -1137,7 +1176,7 @@ public abstract class Robot {
         b=c25; if(c26<b) b=c26; if(c34<b) b=c34; if(c35<b) b=c35; if(c44<b) b=c44; if(c36<b) b=c36; if(c45<b) b=c45; if(c46<b) b=c46; c35=b+r35;
         */
         int b4 = Clock.getBytecodeNum();
-        
+
         b=c88; Direction bestD = Direction.NORTHEAST;
         if(c86<b) {b=c86; bestD = Direction.SOUTHEAST;}
         if(c66<b) {b=c66; bestD = Direction.SOUTHWEST;}
@@ -1161,12 +1200,13 @@ public abstract class Robot {
             if(numNonFrustratedMoves > 2)
                 frustration = 1;
         }
-        
-        rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
+
+        if(to!=null)
+            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
 
         int b5 = Clock.getBytecodeNum();
         //navpretty
-        
+
         MapLocation current = me;
         MapLocation prev = null;
         int n=0;
@@ -1251,7 +1291,7 @@ public abstract class Robot {
         //end navpretty
         lastMoveTowardTarget = to;
         lastNavUse = rc.getLocation();
-        
+
         int b6 = Clock.getBytecodeNum();
         //rc.setIndicatorString("init "+(b1-b0)+" r "+(b2-b1)+" i "+(b3-b2) + " i2 "+(b4-b3)+" m "+(b5-b4)+" f "+(b6-b5));
         rc.setIndicatorString("fr "+frustration+" t "+this.numNonFrustratedMoves+" "+c88+" "+c87+" "+c86+" "+c76+" "+c66+" "+c67+" "+c68+" "+c78);
