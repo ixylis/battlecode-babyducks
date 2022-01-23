@@ -64,6 +64,10 @@ public class Soldier extends Robot {
     int[] recentEnemiesRounds = new int[10];
 
     private boolean micro() throws GameActionException {
+        if(!rc.isMovementReady()) {
+            attack();
+            return false;
+        }
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
@@ -253,7 +257,8 @@ public class Soldier extends Robot {
                 if(b <= nearbyRubble[8] || (b+10) * (b+10) * friendlyStrength*friendlyHP < (nearbyRubble[8]+10) * (nearbyRubble[8]+10) * enemyStrength*enemyHP) {
                     if(rc.isActionReady())
                         attack();
-                    rc.move(bestRetreatDir);
+                    if(rc.canMove(bestRetreatDir))
+                        rc.move(bestRetreatDir);
                 } else if((nearbyRubble[8]+10)*16/10 >= (nearbyRubble[bestDir]+10) && rc.isActionReady())
                     //if you haven't shot this turn, and retreating wasn't good enough to warrant, then walk forward and shoot anyway.
                     //you get about 1.6x more shots off by walking forward to shoot rather than sitting and waiting for the enmey to come.
