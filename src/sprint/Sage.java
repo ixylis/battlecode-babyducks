@@ -64,6 +64,74 @@ public class Sage extends Robot {
     }
 
     private boolean micro() throws GameActionException {
+        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
+        if(enemies.length==0) return false;
+        boolean[] canMove = new boolean[9];
+        //int[] enemiesInRange = new int[9];
+        int[] dmg = new int[9];
+        int[] enemiesFarther = new int[9]; //enemies within one tile of range
+        int bestRetreat=-1;
+        int bestAdvance=-1;
+        int[] nearbyRubble = new int[9];
+        for(int i=0;i<9;i++) {
+            MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
+        }
+        for(int i=0;i<9;i++) {
+            if(i<8 && !rc.canMove(Direction.allDirections()[i])) 
+                continue;
+            else
+                canMove[i] = true;
+            for(RobotInfo r : enemies) {
+                MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+                if(m.isWithinDistanceSquared(r.location, RobotType.SOLDIER.actionRadiusSquared)) {
+                    if(r.type == RobotType.SOLDIER || r.type == RobotType.SAGE) {
+                        enemiesFarther[i]+=10;
+                    }
+                } else if(m.isWithinDistanceSquared(r.location, RobotType.SAGE.actionRadiusSquared)) {
+                    switch(r.type) {
+                    case SAGE:
+                        enemiesFarther[i]+=2;
+                        dmg[i]+=Math.max(r.health, 22);
+                        break;
+                    case SOLDIER:
+                        enemiesFarther[i]+=1;
+                        dmg[i]+=Math.max(r.health, 11);
+                        break;
+                    case MINER:
+                        dmg[i]+=Math.max(r.health, 8);
+                        break;
+                    default: break;
+                    }
+                }
+            }
+            if((bestRetreat==-1 || (enemiesFarther[i]+1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestRetreat] + 10) * (1+enemiesFarther[bestRetreat]))) {
+                bestRetreat = i;
+            }
+            if((bestAdvance==-1 || (dmg[i]+1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestAdvance] + 10) * (1+dmg[bestAdvance]))) {
+                bestRetreat = i;
+            }
+        }
+        //if we aren't shooting any time soon, retreat
+        if(rc.getActionCooldownTurns() > 50) {
+            rc.move(Direction.allDirections()[bestRetreat]);
+        } else {
+            //otherwise, advance to shoot
+            if(dmg[bestAdvance] < 45) {
+                bestAdvance = -1;
+                for(int i=0;i<9;i++) {
+                    if((bestAdvance==-1 || nearbyRubble[i] < nearbyRubble[bestAdvance]) && dmg[i] > 0) {
+                        bestAdvance = i;
+                    }
+                }
+                if(bestAdvance==-1) return false;
+            }
+            rc.move(Direction.allDirections()[bestAdvance]);
+            attack();
+        }
+        return true;
+    }
+    private boolean oldmicro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
