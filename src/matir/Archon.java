@@ -23,6 +23,7 @@ public class Archon extends Robot {
     private int vortexIndex = 0;
     private int income = 0;
     private int prevIncome = 0;
+    private int builders = 0; // builders built, does not get decremented when they die
     int totalHQ;
 
     Archon(RobotController r) throws GameActionException {
@@ -31,13 +32,13 @@ public class Archon extends Robot {
         double badness = (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
                 max(rc.getMapHeight() - myLoc.y - 1, myLoc.y));
 
-        for (i = 0; rc.readSharedArray(i + INDEX_MY_HQ) > 0 && i < 4; i++) ;
+        for (i = 0; rc.readSharedArray(i + INDEX_MY_HQ) > 0 && i < 4; i++);
         if (i < 4) {
             myHQIndex = i;
             rc.setIndicatorString(String.valueOf(i));
             rc.writeSharedArray(INDEX_HQBAD + i, (int) badness);
             rc.writeSharedArray(INDEX_MY_HQ + i,
-                    locToInt(rc.getLocation()));
+                    Robot.locToInt(rc.getLocation()));
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
@@ -59,8 +60,13 @@ public class Archon extends Robot {
     boolean die = false;
 
     public void turn() throws GameActionException {
+        int income = rc.readSharedArray(INDEX_INCOME) / 2;
+        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
+        //if(rc.getRoundNum() > 500 && rc.getTeamLeadAmount(rc.getTeam()) < rc.getTeamLeadAmount(rc.getTeam().opponent())) rc.resign();
+        //if(liveMiners < 18 && rc.getTeamLeadAmount(rc.getTeam())>RobotType.MINER.buildCostLead) buildMiner();
+        //if(DEBUG) return;
         int money = rc.getTeamLeadAmount(rc.getTeam());
-        int rawIncome = money - lastTurnMoney;
+        int rawIncome =  money - lastTurnMoney;
         lastTurnMoney = money;
 
         if (rc.getRoundNum() == 1) {
@@ -90,13 +96,13 @@ public class Archon extends Robot {
             buildMiner();
             RobotInfo[] nearby = rc.senseNearbyRobots(8, rc.getTeam());
             boolean nearbyminer = false;
-            for (RobotInfo rb : nearby) {
-                if (rb.type == MINER) {
+            for(RobotInfo rb : nearby) {
+                if(rb.type == MINER) {
                     nearbyminer = true;
                     break;
                 }
             }
-            if (nearbyminer && nearby.length >= 2) rc.disintegrate();
+            if(nearbyminer && nearby.length >= 2) rc.disintegrate();
             return;
         }
 
@@ -121,7 +127,7 @@ public class Archon extends Robot {
             }
         }
 
-        if (!die) {
+        if(!die) {
             if (prevIncome / rc.getArchonCount() < 200) considerRelocate();
 
             if (relocating) {
@@ -147,40 +153,52 @@ public class Archon extends Robot {
             }
         }
 
-        int income = rc.readSharedArray(INDEX_INCOME) / 2;
-        int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
         if (DEBUG) {
-            MapLocation enemyLoc = intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_UNIT_CHUNKS));
+            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_SOLDIER_CHUNKS));
             rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " enemy=" + enemyLoc);
         }
-
         boolean myTurn = true;
         // if we're under attack, override this and always build
         boolean underAttack = rc.senseNearbyRobots(ARCHON.visionRadiusSquared,
                 rc.getTeam().opponent()).length > 0;
         int max_miners = (int) ((pow(rc.getMapHeight() * rc.getMapHeight(), 0.8) / 250) *
                 pow(rc.getRoundNum(), 0.3));
-        int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) *
-                max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 100;
-        double minerToSoldier = max(0.8 - (rc.getRoundNum() / 3000.0) -
-                (400.0 / (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) *
-                        max(rc.getMapHeight() - myLoc.y - 1, myLoc.y))), 0);
+        int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
+                max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 20;
+        double minerToSoldier = 0.6 - (rc.getRoundNum() / 5000.0) -
+                (rc.getMapWidth() * rc.getMapHeight() / 12800.0);
+
+        if (!underAttack && rc.getRoundNum() > 100 && builders == 0) {
+            if (buildInDirection(RobotType.BUILDER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)).opposite())) {
+                rc.writeSharedArray(INDEX_LAB, 1);
+                builders ++;
+            }
+        }
+
+        if (!underAttack && rc.readSharedArray(INDEX_LAB) == 1) {
+            // save lead for lab before building soldiers
+            if (rc.getTeamLeadAmount(rc.getTeam()) < 180 + 75) {
+                repair();
+                return;
+            }
+        }
 
         if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
-                (max_miners / 1.5 > liveMiners ||
+                (max_miners/1.5 > liveMiners ||
                         (income > liveMiners * 40 && liveMiners < max_miners) ||
                         (income > liveMiners * 80) ||
                         rc.getRoundNum() < initTurns ||
                         soldiers * minerToSoldier > miners)) {
-            miners++;
-            buildMiner();
+            if (buildMiner())
+                miners++;
         } else {
-            if (buildInDirection(RobotType.SOLDIER,
+            if(buildInDirection(RobotType.SOLDIER,
                     rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2))))
                 soldiers++;
         }
 
-        if(rc.getRoundNum() % 16 == 0) removeOldEnemySoldierLocations();
+        super.removeOldEnemySoldierLocations();
+        super.updateEnemySoliderLocations();
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum() % 4) << 12) | (totalSpent >> 4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
         if (rc.getRoundNum() % 160 == 0) {
@@ -206,7 +224,7 @@ public class Archon extends Robot {
         if (rc.isActionReady()) {
             RobotInfo best = rc.senseRobot(rc.getID());
             for (RobotInfo r : rc.senseNearbyRobots(ARCHON.visionRadiusSquared, rc.getTeam())) {
-                if (r.health == r.type.getMaxHealth(r.level))
+                if(r.health == r.type.getMaxHealth(r.level))
                     continue;
 
                 if (r.mode == RobotMode.DROID) {

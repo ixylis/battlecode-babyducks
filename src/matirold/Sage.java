@@ -24,7 +24,7 @@ public class Sage extends Robot {
         if (rc.isMovementReady()) movement();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + rc.getRoundNum() % NUM_ENEMY_UNIT_CHUNKS)), 1, 255, 1);
 
     }
 

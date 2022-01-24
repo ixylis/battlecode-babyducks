@@ -37,7 +37,7 @@ public class Archon extends Robot {
             rc.setIndicatorString(String.valueOf(i));
             rc.writeSharedArray(INDEX_HQBAD + i, (int) badness);
             rc.writeSharedArray(INDEX_MY_HQ + i,
-                    Robot.locToInt(rc.getLocation()));
+                    locToInt(rc.getLocation()));
         } else {
             rc.disintegrate(); //uh oh something went very wrong
         }
@@ -150,7 +150,7 @@ public class Archon extends Robot {
         int income = rc.readSharedArray(INDEX_INCOME) / 2;
         int liveMiners = rc.readSharedArray(INDEX_LIVE_MINERS) / 2;
         if (DEBUG) {
-            MapLocation enemyLoc = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_SOLDIER_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_SOLDIER_CHUNKS));
+            MapLocation enemyLoc = intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_UNIT_CHUNKS));
             rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " enemy=" + enemyLoc);
         }
 
@@ -158,9 +158,9 @@ public class Archon extends Robot {
         // if we're under attack, override this and always build
         boolean underAttack = rc.senseNearbyRobots(ARCHON.visionRadiusSquared,
                 rc.getTeam().opponent()).length > 0;
-        int max_miners = (int) ((pow(rc.getMapHeight() * rc.getMapHeight(), 0.9) / 250) *
-                pow(rc.getRoundNum(), 0.4));
-        int initTurns = 5 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) *
+        int max_miners = (int) ((pow(rc.getMapHeight() * rc.getMapHeight(), 0.8) / 250) *
+                pow(rc.getRoundNum(), 0.3));
+        int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) *
                 max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 100;
         double minerToSoldier = max(0.8 - (rc.getRoundNum() / 3000.0) -
                 (400.0 / (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) *
@@ -180,8 +180,7 @@ public class Archon extends Robot {
                 soldiers++;
         }
 
-        super.removeOldEnemySoldierLocations();
-        super.updateEnemySoliderLocations();
+        if(rc.getRoundNum() % 16 == 0) removeOldEnemySoldierLocations();
         rc.writeSharedArray(myHQIndex + Robot.INDEX_HQ_SPENDING, 0x4000 | ((rc.getRoundNum() % 4) << 12) | (totalSpent >> 4));
         lastTurnMoney = rc.getTeamLeadAmount(rc.getTeam());
         if (rc.getRoundNum() % 160 == 0) {

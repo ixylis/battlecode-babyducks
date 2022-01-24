@@ -5,6 +5,8 @@ import battlecode.common.*;
 import static battlecode.common.RobotType.*;
 import static java.lang.Math.max;
 
+import java.util.Arrays;
+
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
         super(r);
@@ -22,7 +24,8 @@ public class Soldier extends Robot {
         if (rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + rc.getRoundNum() % NUM_ENEMY_UNIT_CHUNKS)), 1, 255, 1);
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+
     }
 
     /*
@@ -61,6 +64,10 @@ public class Soldier extends Robot {
     int[] recentEnemiesRounds = new int[10];
 
     private boolean micro() throws GameActionException {
+        if(!rc.isMovementReady()) {
+            attack();
+            return false;
+        }
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
@@ -104,7 +111,7 @@ public class Soldier extends Robot {
             }
             if(nearest==null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
                 nearest = r.location;
-
+            
         }
         int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
         int friendlyStrength = 3*100/(10+rc.senseRubble(rc.getLocation()));
@@ -133,7 +140,7 @@ public class Soldier extends Robot {
         for(int i=0;i<9;i++) {
             //if(rc.senseRobotAtLocation(rc.getLocation().add(Direction.allDirections()[i]))!=null) continue;
             //if(bestDir!=-1 && nearbyRubble[bestDir] < nearbyRubble[i]) continue;
-            if(i<8 && !rc.canMove(Direction.allDirections()[i]))
+            if(i<8 && !rc.canMove(Direction.allDirections()[i])) 
                 continue;
             else
                 canMove[i] = true;
@@ -171,41 +178,41 @@ public class Soldier extends Robot {
         Direction d = nearest.directionTo(rc.getLocation());
         int di=0;
         switch(d) {
-            case NORTH: di=0; break;
-            case NORTHEAST: di=1; break;
-            case EAST: di=2; break;
-            case SOUTHEAST: di=3; break;
-            case SOUTH: di=4; break;
-            case SOUTHWEST: di=5; break;
-            case WEST: di=6; break;
-            case NORTHWEST: di=7; break;
-            case CENTER: di=8; break;
+        case NORTH: di=0; break;
+        case NORTHEAST: di=1; break;
+        case EAST: di=2; break;
+        case SOUTHEAST: di=3; break;
+        case SOUTH: di=4; break;
+        case SOUTHWEST: di=5; break;
+        case WEST: di=6; break;
+        case NORTHWEST: di=7; break;
+        case CENTER: di=8; break;
         }
         int retreat1 = rc.canMove(d)&&enemiesInRange[di]==0? rc.senseRubble(rc.getLocation().add(d)) : 1000;
         d=d.rotateLeft();
         switch(d) {
-            case NORTH: di=0; break;
-            case NORTHEAST: di=1; break;
-            case EAST: di=2; break;
-            case SOUTHEAST: di=3; break;
-            case SOUTH: di=4; break;
-            case SOUTHWEST: di=5; break;
-            case WEST: di=6; break;
-            case NORTHWEST: di=7; break;
-            case CENTER: di=8; break;
+        case NORTH: di=0; break;
+        case NORTHEAST: di=1; break;
+        case EAST: di=2; break;
+        case SOUTHEAST: di=3; break;
+        case SOUTH: di=4; break;
+        case SOUTHWEST: di=5; break;
+        case WEST: di=6; break;
+        case NORTHWEST: di=7; break;
+        case CENTER: di=8; break;
         }
         int retreat2 = rc.canMove(d)&&enemiesInRange[di]==0? rc.senseRubble(rc.getLocation().add(d)) : 1000;
         d=d.rotateRight().rotateRight();
         switch(d) {
-            case NORTH: di=0; break;
-            case NORTHEAST: di=1; break;
-            case EAST: di=2; break;
-            case SOUTHEAST: di=3; break;
-            case SOUTH: di=4; break;
-            case SOUTHWEST: di=5; break;
-            case WEST: di=6; break;
-            case NORTHWEST: di=7; break;
-            case CENTER: di=8; break;
+        case NORTH: di=0; break;
+        case NORTHEAST: di=1; break;
+        case EAST: di=2; break;
+        case SOUTHEAST: di=3; break;
+        case SOUTH: di=4; break;
+        case SOUTHWEST: di=5; break;
+        case WEST: di=6; break;
+        case NORTHWEST: di=7; break;
+        case CENTER: di=8; break;
         }
         int retreat3 = rc.canMove(d)&&enemiesInRange[di]==0? rc.senseRubble(rc.getLocation().add(d)) : 1000;
         boolean shouldRetreat = false;
@@ -250,7 +257,8 @@ public class Soldier extends Robot {
                 if(b <= nearbyRubble[8] || (b+10) * (b+10) * friendlyStrength*friendlyHP < (nearbyRubble[8]+10) * (nearbyRubble[8]+10) * enemyStrength*enemyHP) {
                     if(rc.isActionReady())
                         attack();
-                    rc.move(bestRetreatDir);
+                    if(rc.canMove(bestRetreatDir))
+                        rc.move(bestRetreatDir);
                 } else if((nearbyRubble[8]+10)*16/10 >= (nearbyRubble[bestDir]+10) && rc.isActionReady())
                     //if you haven't shot this turn, and retreating wasn't good enough to warrant, then walk forward and shoot anyway.
                     //you get about 1.6x more shots off by walking forward to shoot rather than sitting and waiting for the enmey to come.
@@ -276,7 +284,7 @@ public class Soldier extends Robot {
                 if(bestI<8)
                     rc.move(Direction.allDirections()[bestI]);
                 bestMoveI=bestI;
-
+                
             }
         }
         /*
@@ -301,7 +309,7 @@ public class Soldier extends Robot {
         return true;
     }
     private void oldMicro() {
-
+        
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
          * for this purpose, we go one robot at a time, find the lowest rubble spot it can move to in that direction +/- 45 deg
@@ -511,7 +519,6 @@ public class Soldier extends Robot {
                     rc.writeSharedArray(INDEX_HEALING, healees + 1);
                 } else {
                     dying = true;
-                    return;
                 }
             }
         }
