@@ -15,11 +15,18 @@ public class Laboratory extends Robot {
     }
 
     public void turn() throws GameActionException {
+        int income = rc.readSharedArray(INDEX_INCOME) / 80;
+        int numLabs = rc.readSharedArray(INDEX_LAB);
         if (rc.getMode() == RobotMode.PROTOTYPE) return;
 
         // convert lead to gold if the conversion rate is better than 5:1
-        if (rc.getTransmutationRate() <= 5 && rc.canTransmute() && rc.getTeamLeadAmount(rc.getTeam()) > 55)
-            rc.transmute();
+        if (rc.getTransmutationRate() <= 5 && (income > numLabs * rc.getTransmutationRate() || rc.getTeamLeadAmount(rc.getTeam()) > 55)) {
+            if (rc.canTransmute())
+                rc.transmute();
+            rc.setIndicatorString("transmuting, income = " + income);
+        } else {
+            rc.setIndicatorString("not transmuting, income = " + income);
+        }
 
 
         rc.setIndicatorDot(highground,0,0,255);

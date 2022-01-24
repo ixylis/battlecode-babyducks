@@ -177,7 +177,7 @@ public class Archon extends Robot {
         }
 
         // build labs once every 100 rounds if we have enough income
-        if (!underAttack && rc.getRoundNum() > 100 * (1 + rc.readSharedArray(INDEX_LAB)) && (2 * (1 + rc.readSharedArray(INDEX_LAB)) - 2) * 40 < income) {
+        if (!underAttack && rc.getRoundNum() > 100 * (1 + rc.readSharedArray(INDEX_LAB)) && (6 * (rc.readSharedArray(INDEX_LAB))) * 40 < income) {
             // save lead for lab before building soldiers
             if (rc.getTeamLeadAmount(rc.getTeam()) < 180) {
                 repair();
@@ -185,7 +185,7 @@ public class Archon extends Robot {
             }
         }
 
-        if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
+        if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 200 &&
                 (max_miners/1.5 > liveMiners ||
                         (income > liveMiners * 40 && liveMiners < max_miners) ||
                         (income > liveMiners * 80) ||

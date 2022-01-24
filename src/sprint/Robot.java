@@ -113,13 +113,14 @@ public abstract class Robot {
                     lastMoveTurn = rc.getRoundNum();
                 }
                 if(DEBUG) {
-                    MapLocation last = rc.getLocation();
-                    for(int i=recentLocationsIndex+9;i>recentLocationsIndex;i--) {
-                        if(recentLocations[i%10]!=null) {
-                            MapLocation next = recentLocations[i%10];
-                            // rc.setIndicatorLine(last, next, 255, 0, 0);
-                            last=next;
-                        }
+                }
+
+                MapLocation last = rc.getLocation();
+                for(int i=recentLocationsIndex+9;i>recentLocationsIndex;i--) {
+                    if(recentLocations[i%10]!=null) {
+                        MapLocation next = recentLocations[i%10];
+                        rc.setIndicatorLine(last, next, 255, 0, 0);
+                        last=next;
                     }
                 }
             } catch(GameActionException e) {
@@ -803,7 +804,11 @@ public abstract class Robot {
          * for computing this min, a square outside of vision range is always cost = euclidean distance*10
          */
 
-
+        //if you are close, use the old nav code.
+        if(to!=null && rc.getLocation().isWithinDistanceSquared(to, 13)) {
+            moveTowardOld2(to);
+            return;
+        }
         int b0 = Clock.getBytecodeNum();
 
         MapLocation me = rc.getLocation();
@@ -1034,6 +1039,7 @@ public abstract class Robot {
             }
             //rc.setIndicatorDot(lastNavEndpoint, 0, 255, 255);
         }
+        
 
         b=c25; if(c26<b) b=c26; if(c34<b) b=c34; int c35=b+r35;
         b=c29; if(c28<b) b=c28; if(c3a<b) b=c3a; int c39=b+r39;
