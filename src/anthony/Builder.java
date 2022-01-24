@@ -8,7 +8,7 @@ public class Builder extends Robot {
         super(r);
     }
     private MapLocation hqLoc = null;
-    private MapLocation labLoc = null;
+    private MapLocation labLoc = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
     private boolean builtLab = false;
     public void turn() throws GameActionException {
       rc.setIndicatorString("Cooldown: " + rc.getActionCooldownTurns());
@@ -18,7 +18,6 @@ public class Builder extends Robot {
         for (RobotInfo robot : robots) {
           if (robot.type == RobotType.ARCHON) {
             hqLoc = robot.location;
-            labLoc = hqLoc; // initialize to this until we actually build a lab
           }
         }
       }
@@ -53,15 +52,15 @@ public class Builder extends Robot {
       MapLocation nearestCorner = corners[0];
       for (MapLocation corner : corners) {
         if ((me.distanceSquaredTo(corner) < me.distanceSquaredTo(nearestCorner) 
-              || hqLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared
+//              || hqLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared
               || labLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared) 
-            && (hqLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared
-              && labLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared))
+//            && hqLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared
+            && labLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared)
           nearestCorner = corner;
       }
       Direction dir = me.directionTo(nearestCorner);
       if (me.distanceSquaredTo(nearestCorner) <= 2 || 
-          (!builtLab && me.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared
+          (me.distanceSquaredTo(labLoc) > RobotType.LABORATORY.visionRadiusSquared && me.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared
            && (rc.canSenseLocation(me.add(dir)) && rc.senseRubble(me.add(dir)) == 0
              || (rc.canSenseLocation(me.add(dir.rotateLeft())) && rc.senseRubble(me.add(dir.rotateLeft())) == 0)
              || (rc.canSenseLocation(me.add(dir.rotateRight())) && rc.senseRubble(me.add(dir.rotateRight())) == 0)))) {
@@ -104,11 +103,37 @@ public class Builder extends Robot {
           }
         }
 
+        newDir = dir.rotateLeft().rotateLeft().rotateLeft();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+        newDir = dir.rotateRight().rotateRight().rotateRight();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+
+        newDir = dir.opposite();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+
         if (rc.canBuildRobot(RobotType.LABORATORY, bestDir)) {
           builtLab = true;
           labLoc = me.add(bestDir);
           rc.buildRobot(RobotType.LABORATORY, bestDir);
-          rc.writeSharedArray(INDEX_LAB, 0);
+          rc.writeSharedArray(INDEX_LAB, rc.readSharedArray(INDEX_LAB) + 1);
         }
       } else {
         dir = bestMove(dir);
