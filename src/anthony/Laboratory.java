@@ -18,7 +18,7 @@ public class Laboratory extends Robot {
         if (rc.getMode() == RobotMode.PROTOTYPE) return;
 
         // convert lead to gold if the conversion rate is better than 5:1
-        if (rc.getTransmutationRate() <= 5 && rc.canTransmute())
+        if (rc.getTransmutationRate() <= 5 && rc.canTransmute() && rc.getTeamLeadAmount(rc.getTeam()) > 55)
             rc.transmute();
 
 
