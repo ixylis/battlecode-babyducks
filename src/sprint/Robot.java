@@ -8,7 +8,7 @@ import static battlecode.common.RobotType.*;
 import static java.lang.Math.*;
 
 public abstract class Robot {
-    public static final int SEED = 7328;
+    public static final int SEED = 1293;
     public static final int MAX_LEAD = 1000; // trigger to start building watchtowers
     public static final int MAX_HEALS = 3;
     public static final double HEALTH_FACTOR = 0.2;
@@ -50,8 +50,8 @@ public abstract class Robot {
             INDEX_ENEMY_ETC_LOCATION + NUM_ENEMY_ETC_CHUNKS;
     /*
     Locations of our units
-    Each chunk is 16 = 1 + 1 + 2 + 3 + 1 + 1 + 7 bits abrrsssqflllllllll
-    lllllllll = location = 10x + y, counting 6x6 blocks as regions
+    Each chunk is 16 = 1 + 1 + 2 + 3 + 1 + 1 + 7 bits abrrsssqflllllll
+    lllllll = location = 10x + y, counting 6x6 blocks as regions
     f = frontier (0 if not fighting, 1 if fighting)
     q = who is stronger (0 if we are stronger, 1 if they are)
     rr = current rubble (0-10/11-25/26-50/51-100)
@@ -75,7 +75,7 @@ public abstract class Robot {
     /*
     Each region is 10 = 3 + 7 bits xyzllllllll
         lllllll = location = 20x + y, counting 6x6 blocks as regions
-        xyz = least power of 2 greater than lead amount in block
+        xyz = least power of 3 greater than lead amount in block
     */
     public static final int NUM_LEAD_DEPOSIT_INTS = 10;
     public static final int NUM_LEAD_DEPOSITS = 16;
@@ -170,6 +170,7 @@ public abstract class Robot {
     MapLocation[] recentLocations = new MapLocation[10];
     int recentLocationsIndex = 0;
     int lastMoveTurn = 0;
+    int round = 0;
 
     void run() {
         // initialize hqLoc to be adjacent HQ
@@ -179,10 +180,10 @@ public abstract class Robot {
         }
         while (true) {
             try {
+                round = rc.getRoundNum();
                 myLoc = rc.getLocation();
                 turn();
                 if (rc.getRoundNum() % 7 == 3) saveInfo();
-                updateInfo();
 
                 if (!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
                     recentLocationsIndex = (recentLocationsIndex + 1) % 10;
@@ -200,6 +201,7 @@ public abstract class Robot {
                         last = next;
                     }
                 }
+                updateInfo();
             } catch (GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch (RuntimeException e) {
@@ -210,26 +212,37 @@ public abstract class Robot {
                 }
                 //rc.setIndicatorString(e.toString());
             }
+            if(round != rc.getRoundNum()) continue;
             Clock.yield();
         }
     }
 
-    double getHeat(MapLocation loc) {
-        double myHeat = 0, enemyHeat = 0;
+    double getEnemyHeat(MapLocation loc) {
+        double enemyHeat = 0;
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            if(savedEnemyUnitLocs[i] == 0xFFFF) continue;
             enemyHeat += chunkToPower(savedEnemyUnitLocs[i]) /
                     (1 + loc.distanceSquaredTo(chunkToloc(
                             savedEnemyUnitLocs[i])));
         }
-        myHeat = -enemyHeat;
-        for (int i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
-            if (((savedMyLocs[i] >> 7) & 1) == 1)
-                myHeat += chunkToPowerDiff(savedMyLocs[i]) /
-                        (1 + loc.distanceSquaredTo(chunkToloc(
-                                savedMyLocs[i])));
+        return enemyHeat;
+    }
+
+    double getHeatDiff(MapLocation loc) {
+        double heatDiff = 0;
+        for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            if((savedEnemyUnitLocs[i] & 0xFF) == 0xFF) continue;
+            if(((savedEnemyUnitLocs[i] >> 7) & 1) == 0) continue;
+            heatDiff += chunkToPowerDiff(savedEnemyUnitLocs[i]) /
+                    (1 + loc.distanceSquaredTo(chunkToloc(
+                            savedEnemyUnitLocs[i])));
         }
-        double ratio = max(myHeat, 0.01) / max(enemyHeat, 0.01);
-        return log(ratio) / log(2);
+        return heatDiff;
+    }
+
+    int chunkToLead(int chunk) {
+        int e = chunk >> 7;
+        return (int) (pow(3, e) / sqrt(3));
     }
 
     double chunkToPowerDiff(int chunk) {
@@ -356,14 +369,15 @@ public abstract class Robot {
         }
 
         if (empi >= 0) lowi = empi;
-        if (pow(2, low + 0.5) > amt) return;
+        if (pow(3, low + 0.5) > amt) return;
 
         int lead, out;
         if (amt == 0) {
             lead = 0;
         } else {
-            lead = (int) (log(amt) / log(2.001)) + 1;
+            lead = (int) (log(amt) / log(3.001)) + 1;
         }
+        if(lead > 7) lead = 7;
         out = l | (lead << 7);
 
         int j = (lowi * NUM_LEAD_DEPOSIT_INTS) / NUM_LEAD_DEPOSITS;
@@ -1461,8 +1475,7 @@ public abstract class Robot {
 
         if (myIndex == -1) return;
 
-        RobotInfo[] friends = rc.senseNearbyRobots(
-                rc.getType().visionRadiusSquared, rc.getTeam());
+        RobotInfo[] friends = rc.senseNearbyRobots(5, rc.getTeam());
 
         if (Clock.getBytecodesLeft() <
                 1200 + (friends.length + enemies.length) * 120) return;

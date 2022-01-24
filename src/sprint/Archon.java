@@ -43,19 +43,19 @@ public class Archon extends Robot {
             rc.disintegrate(); //uh oh something went very wrong
         }
 
-        for(i=0;i<NUM_ENEMY_UNIT_CHUNKS;i++) {
+        for (i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             rc.writeSharedArray(i + INDEX_ENEMY_UNIT_LOCATION, 0xFFFF);
         }
 
-        for(i=0;i<NUM_ENEMY_ETC_CHUNKS;i++) {
+        for (i = 0; i < NUM_ENEMY_ETC_CHUNKS; i++) {
             rc.writeSharedArray(i + INDEX_ENEMY_ETC_LOCATION, 0xFFFF);
         }
 
-        for(i=0;i<NUM_MY_UNIT_CHUNKS;i++) {
+        for (i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
             rc.writeSharedArray(i + INDEX_MY_UNIT_LOCATIONS, 0xFFFF);
         }
 
-        for(i=0;i<NUM_LEAD_DEPOSIT_INTS;i++) {
+        for (i = 0; i < NUM_LEAD_DEPOSIT_INTS; i++) {
             rc.writeSharedArray(i + INDEX_LEAD_DEPOSITS, 0xFFFF);
         }
 
@@ -126,12 +126,6 @@ public class Archon extends Robot {
 
         if (!die) rc.writeSharedArray(INDEX_ARCHON_LOC, locToInt(myLoc));
 
-        if (buildInDirection(RobotType.SAGE, rc.getLocation().directionTo(
-                new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)))) {
-            soldiers ++;
-            return;
-        }
-
         //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
 
         if (anomalyIndex < anomalies.length) {
@@ -195,27 +189,35 @@ public class Archon extends Robot {
 
         int numLabs = readMisc(BIT_LAB, NUM_LAB);
         // build labs once every 100 rounds if we have enough income
-        if (!underAttack && rc.getRoundNum() > 100 * (1 + numLabs)
-                && (6 * numLabs * 40) < income) {
-            // save lead for lab before building soldiers
-            if (rc.getTeamLeadAmount(rc.getTeam()) < 180) {
-                repair();
-                return;
-            }
-        }
 
         if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
                 (max_miners / 1.5 > liveMiners ||
                         (income > liveMiners * 40 && liveMiners < max_miners) ||
-          //              (income > liveMiners * 80) ||
+                        //              (income > liveMiners * 80) ||
                         rc.getRoundNum() < initTurns ||
                         soldiers * minerToSoldier > miners)) {
             if (buildMiner())
                 miners++;
         } else {
-            if (buildInDirection(RobotType.SOLDIER,
-                    rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2))))
+            if (buildInDirection(RobotType.SAGE, rc.getLocation().directionTo(
+                    new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)))) {
                 soldiers++;
+                return;
+            } else {
+                if (!underAttack && rc.getRoundNum() > 100 * (1 + numLabs)
+                        && (6 * numLabs * 40) < income) {
+                    // save lead for lab before building soldiers
+                    if (rc.getTeamLeadAmount(rc.getTeam()) < 180) {
+                        repair();
+                        return;
+                    }
+                }
+
+                if (buildInDirection(RobotType.SOLDIER,
+                        rc.getLocation().directionTo(new MapLocation(
+                                rc.getMapWidth() / 2, rc.getMapHeight() / 2))))
+                    soldiers++;
+            }
         }
 
         if (rc.getRoundNum() % 16 == 0) {
@@ -232,7 +234,9 @@ public class Archon extends Robot {
             super.clearUnexploredChunks();
         }
 
-        for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+        for (
+                int i = 0;
+                i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i)),
                     25 * i, 0, 0);
         }
@@ -249,7 +253,7 @@ public class Archon extends Robot {
         if (rc.canSenseRobot(healTarget)) {
             RobotInfo rb = rc.senseRobot(healTarget);
             if (rb.health < rb.type.getMaxHealth(1)) {
-                if(rc.canRepair(rb.location)) {
+                if (rc.canRepair(rb.location)) {
                     rc.repair(rb.location);
                     return;
                 }
