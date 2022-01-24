@@ -16,12 +16,12 @@ public class Sage extends Robot {
     private MapLocation movementTarget = null;
 
     public void turn() throws GameActionException {
-        if (rc.isMovementReady())
-            movement();
-        if (rc.isActionReady()) {
-            //attack();
-        } else
-            super.updateEnemyLocations();
+        boolean m = micro();
+        if(rc.isMovementReady() || rc.isActionReady()) {
+            if(!m && rc.isMovementReady())
+                movement();
+        }
+        super.updateEnemyLocations();
         //if (rc.isMovementReady()) movement();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
@@ -64,6 +64,7 @@ public class Sage extends Robot {
             return d.rotateRight();
     }
     int damageDealt = 0;
+    int lastShotTurn = 0;
     private boolean micro() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
         if(enemies.length==0) return false;
@@ -76,7 +77,7 @@ public class Sage extends Robot {
         int[] nearbyRubble = new int[9];
         for(int i=0;i<9;i++) {
             MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
-            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):0;
+            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):1000;
         }
         for(int i=0;i<9;i++) {
             if(i<8 && !rc.canMove(Direction.allDirections()[i])) 
@@ -93,14 +94,14 @@ public class Sage extends Robot {
                     switch(r.type) {
                     case SAGE:
                         enemiesFarther[i]+=2;
-                        dmg[i]+=Math.max(r.health, 22);
+                        dmg[i]+=Math.min(r.health, 22);
                         break;
                     case SOLDIER:
                         enemiesFarther[i]+=1;
-                        dmg[i]+=Math.max(r.health, 11);
+                        dmg[i]+=Math.min(r.health, 11);
                         break;
                     case MINER:
-                        dmg[i]+=Math.max(r.health, 8);
+                        dmg[i]+=Math.min(r.health, 8);
                         break;
                     default: break;
                     }
@@ -109,45 +110,66 @@ public class Sage extends Robot {
             if((bestRetreat==-1 || (enemiesFarther[i]+1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestRetreat] + 10) * (1+enemiesFarther[bestRetreat]))) {
                 bestRetreat = i;
             }
-            if((bestAdvance==-1 || (dmg[i]+1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestAdvance] + 10) * (1+dmg[bestAdvance]))) {
+            if((bestAdvance==-1 || (dmg[i]+100) * (nearbyRubble[i] + 10) < (nearbyRubble[bestAdvance] + 10) * (100+dmg[bestAdvance]))) {
                 bestAdvance = i;
             }
         }
         //if we aren't shooting any time soon, retreat
-        if(rc.getActionCooldownTurns() > 50 || rc.getRoundNum()%25<19) {
-            if(bestRetreat!=8) //don't bother if the optimal move is to stay where you are
+        if(rc.getActionCooldownTurns() > 50 || (rc.getRoundNum()%25<19 && lastShotTurn > rc.getRoundNum()+30)) {
+            if(bestRetreat!=8 && bestRetreat != -1) //don't bother if the optimal move is to stay where you are
                 rc.move(Direction.allDirections()[bestRetreat]);
         } else {
             //otherwise, advance to shoot
             if(dmg[bestAdvance] < 45) {
                 bestAdvance = -1;
                 for(int i=0;i<9;i++) {
-                    if((bestAdvance==-1 || nearbyRubble[i] < nearbyRubble[bestAdvance]) && dmg[i] > 0) {
+                    if((bestAdvance==-1 || nearbyRubble[i] < nearbyRubble[bestAdvance]) && dmg[i] > 0 && nearbyRubble[i] <= nearbyRubble[8]) {
                         bestAdvance = i;
                     }
                 }
-                if(bestAdvance==-1) return false;
             }
-            if(bestAdvance != 8)
+            if(bestAdvance != 8 && bestAdvance != -1)
                 rc.move(Direction.allDirections()[bestAdvance]);
-            RobotInfo[] enemies2 = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
-            int maxDmg=0;
-            for(RobotInfo r : enemies2) {
-                    switch(r.type) {
-                    case SAGE:
-                        maxDmg+=Math.max(r.health, 22);
-                        break;
-                    case SOLDIER:
-                        maxDmg+=Math.max(r.health, 11);
-                        break;
-                    case MINER:
-                        maxDmg+=Math.max(r.health, 8);
-                        break;
-                    default: break;
-                    }
-            }
-            if(maxDmg < 2*dmg[bestAdvance] || rc.getHealth() < rc.getMovementCooldownTurns()*2) {
-                if(rc.isActionReady()) attack();
+        }
+        RobotInfo[] enemies2 = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
+        int maxDmg=0;
+        int dmgNow=0;
+        for(RobotInfo r : enemies2) {
+                switch(r.type) {
+                case SAGE:
+                    maxDmg+=Math.min(r.health, 22);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 22);
+                    break;
+                case SOLDIER:
+                    maxDmg+=Math.min(r.health, 11);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 11);
+                    break;
+                case MINER:
+                    maxDmg+=Math.min(r.health, 8);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 8);
+                    break;
+                default: break;
+                }
+        }
+        for(int i=0;i<9;i++) {
+            MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+            nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):1000;
+        }
+        int minRubble = 1000;
+        for(int i=0;i<9;i++) {
+            if(minRubble > nearbyRubble[i])
+                minRubble = nearbyRubble[i];
+        }
+        rc.setIndicatorString(maxDmg+" m "+rc.getMovementCooldownTurns()+" a "+rc.getActionCooldownTurns()+" minr "+minRubble+" myr "+nearbyRubble[8]);
+        if(maxDmg < 2*dmgNow || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
+
+            if(rc.isActionReady() && ((minRubble+10)*10>(nearbyRubble[8]+10)*7)  || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
+                attack();
+                if(!rc.isActionReady())
+                    lastShotTurn = rc.getRoundNum();
             }
         }
         return true;
@@ -329,7 +351,6 @@ public class Sage extends Robot {
             }
         } */
 
-        if (micro()) return;
 
         if (movementTarget != null && rc.canSenseLocation(movementTarget))
             movementTarget = null;
@@ -408,10 +429,10 @@ public class Sage extends Robot {
                 rc.envision(CHARGE);
                 for(RobotInfo r:enemies) {
                     switch (r.type) {
-                    case SOLDIER: damageDealt += Math.max(11, r.health); break;
-                    case MINER: damageDealt += Math.max(8, r.health); break;
-                    case SAGE: damageDealt += Math.max(22, r.health); break;
-                    case BUILDER: damageDealt += Math.max(8, r.health); break;
+                    case SOLDIER: damageDealt += Math.min(11, r.health); break;
+                    case MINER: damageDealt += Math.min(8, r.health); break;
+                    case SAGE: damageDealt += Math.min(22, r.health); break;
+                    case BUILDER: damageDealt += Math.min(8, r.health); break;
                     default:
                         break;
                     }
@@ -424,9 +445,9 @@ public class Sage extends Robot {
             rc.envision(FURY);
             for(RobotInfo r:enemies) {
                 switch (r.type) {
-                case ARCHON: damageDealt += Math.max(132, r.health); break;
-                case WATCHTOWER: damageDealt += Math.max(33, r.health); break;
-                case LABORATORY: damageDealt += Math.max(22, r.health); break;
+                case ARCHON: damageDealt += Math.min(132, r.health); break;
+                case WATCHTOWER: damageDealt += Math.min(33, r.health); break;
+                case LABORATORY: damageDealt += Math.min(22, r.health); break;
                 default:
                     break;
                 }
