@@ -18,16 +18,17 @@ public class Sage extends Robot {
     public void turn() throws GameActionException {
         if (rc.isMovementReady())
             movement();
-        if (rc.isActionReady())
-            attack();
-        else
+        if (rc.isActionReady()) {
+            //attack();
+        } else
             super.updateEnemyLocations();
-        if (rc.isMovementReady()) movement();
+        //if (rc.isMovementReady()) movement();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
         rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION +
                 rc.getRoundNum() % NUM_ENEMY_UNIT_CHUNKS)), 1, 255, 1);
-
+        if(damageDealt > 100)
+            rc.setIndicatorDot(rc.getLocation(), 0, 255, 255);
     }
 
     /*
@@ -62,7 +63,7 @@ public class Sage extends Robot {
         else
             return d.rotateRight();
     }
-
+    int damageDealt = 0;
     private boolean micro() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
         if(enemies.length==0) return false;
@@ -129,7 +130,7 @@ public class Sage extends Robot {
             }
             if(bestAdvance != 8)
                 rc.move(Direction.allDirections()[bestAdvance]);
-            attack();
+            if(rc.isActionReady()) attack();
         }
         return true;
     }
@@ -385,14 +386,33 @@ public class Sage extends Robot {
         }
 
         if(droidVal >= buildingVal) {
-            if(rc.canEnvision(CHARGE))
+            if(rc.canEnvision(CHARGE)) {
                 rc.envision(CHARGE);
-
-            return;
+                for(RobotInfo r:enemies) {
+                    switch (r.type) {
+                    case SOLDIER: damageDealt += Math.max(11, r.health); break;
+                    case MINER: damageDealt += Math.max(8, r.health); break;
+                    case SAGE: damageDealt += Math.max(22, r.health); break;
+                    case BUILDER: damageDealt += Math.max(8, r.health); break;
+                    default:
+                        break;
+                    }
+                }
+                return;
+            }
         }
 
         if(rc.canEnvision(FURY)) {
             rc.envision(FURY);
+            for(RobotInfo r:enemies) {
+                switch (r.type) {
+                case ARCHON: damageDealt += Math.max(132, r.health); break;
+                case WATCHTOWER: damageDealt += Math.max(33, r.health); break;
+                case LABORATORY: damageDealt += Math.max(22, r.health); break;
+                default:
+                    break;
+                }
+            }
         }
     }
 }
