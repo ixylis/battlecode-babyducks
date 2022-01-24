@@ -583,7 +583,9 @@ public class Soldier extends Robot {
         }
 
         if (rc.getHealth() < 10 && !healing) {
-            if (readMisc(BIT_HEALING) == 0) {
+            int r = readMisc(BIT_HEALING);
+            rc.setIndicatorString(String.valueOf(r));
+            if (r == 0) {
                 healing = true;
                 waiting = true;
                 writeMisc(BIT_HEALING, 1);

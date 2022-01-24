@@ -43,6 +43,18 @@ public class Archon extends Robot {
             rc.disintegrate(); //uh oh something went very wrong
         }
 
+        for(i=0;i<NUM_ENEMY_UNIT_CHUNKS;i++) {
+            rc.writeSharedArray(i + INDEX_ENEMY_UNIT_LOCATION, 0xFFFF);
+        }
+
+        for(i=0;i<NUM_ENEMY_ETC_CHUNKS;i++) {
+            rc.writeSharedArray(i + INDEX_ENEMY_ETC_LOCATION, 0xFFFF);
+        }
+
+        for(i=0;i<NUM_MY_UNIT_CHUNKS;i++) {
+            rc.writeSharedArray(i + INDEX_MY_UNIT_LOCATIONS, 0xFFFF);
+        }
+
         totalHQ = rc.getArchonCount();
 
         anomalies = rc.getAnomalySchedule();

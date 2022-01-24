@@ -62,10 +62,11 @@ public class Sage extends Robot {
             return d.rotateRight();
     }
 
+
     RobotInfo[] recentEnemies = new RobotInfo[10];
     int[] recentEnemiesRounds = new int[10];
 
-    private boolean micro() throws GameActionException {
+    private boolean newmicro() throws GameActionException {
         if (!rc.isMovementReady()) {
             attack();
             return false;
@@ -371,7 +372,7 @@ public class Sage extends Robot {
         return true;
     }
 
-    private boolean oldmicro() throws GameActionException {
+    private boolean micro() throws GameActionException {
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());

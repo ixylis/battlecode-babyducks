@@ -8,7 +8,7 @@ import static battlecode.common.RobotType.*;
 import static java.lang.Math.*;
 
 public abstract class Robot {
-    public static final int SEED = 63;
+    public static final int SEED = 7328;
     public static final int MAX_LEAD = 1000; // trigger to start building watchtowers
     public static final int MAX_HEALS = 3;
     public static final double HEALTH_FACTOR = 0.2;
@@ -228,13 +228,15 @@ public abstract class Robot {
     }
 
     void updateLead() throws GameActionException {
-        if(Clock.getBytecodesLeft() < 1700) return;
+        if(Clock.getBytecodesLeft() < 2000) return;
+
         int[] leadInts = new int[NUM_LEAD_DEPOSIT_INTS];
         int[] leadChunks = new int[NUM_LEAD_DEPOSITS];
 
         int l = locToEtc(myLoc);
         MapLocation[] nearby = rc.senseNearbyLocationsWithLead(
                 rc.getType().visionRadiusSquared);
+
         int amt = 0;
         for (MapLocation loc : nearby) {
             amt += rc.senseLead(loc);
@@ -541,7 +543,7 @@ public abstract class Robot {
         RobotInfo[] rbs = rc.senseNearbyRobots(
                 rc.getType().visionRadiusSquared, rc.getTeam().opponent());
 
-        if (Clock.getBytecodesLeft() < 1600 + rbs.length * 250) return;
+        if (Clock.getBytecodesLeft() < 1800 + rbs.length * 225) return;
 
         int[] enemyUnitChunks = new int[NUM_ENEMY_UNIT_CHUNKS];
         int[] newEnemyUnitChunks = new int[NUM_ENEMY_UNIT_CHUNKS];
@@ -564,6 +566,7 @@ public abstract class Robot {
         int e = (rc.getRoundNum() >> 4) & 1;
 
         for (RobotInfo r : rbs) {
+            if(Clock.getBytecodesLeft() < 200) return;
 
             if (!isAttacker(r)) {
                 if (!freeChunks) continue;
@@ -639,6 +642,7 @@ public abstract class Robot {
         }
 
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            if(Clock.getBytecodesLeft() < 200) return;
             if (newEnemyUnitChunks[i] != 0xFFFF) {
                 rc.writeSharedArray(INDEX_ENEMY_UNIT_LOCATION + i, newEnemyUnitChunks[i]);
             }
@@ -1087,7 +1091,8 @@ public abstract class Robot {
     int myIndex = -1;
 
     void updateMyLocation() throws GameActionException {
-        if (Clock.getBytecodesLeft() < 2000) return;
+        if (Clock.getBytecodesLeft() < 3200) return;
+        if(hqLoc == null) return;
 
         int[] chunk = new int[NUM_MY_UNIT_CHUNKS];
         int l = locToEtc(myLoc);
@@ -1129,9 +1134,11 @@ public abstract class Robot {
 
         if (myIndex == -1) return;
 
-        RobotInfo[] friends = rc.senseNearbyRobots(18, rc.getTeam());
-        if(Clock.getBytecodesLeft() < 1000 + (friends.length * 250
-        + enemies.length * 250)) return;
+        RobotInfo[] friends = rc.senseNearbyRobots(
+                rc.getType().visionRadiusSquared, rc.getTeam());
+
+        if(Clock.getBytecodesLeft() <
+                1200 + (friends.length + enemies.length) * 120) return;
 
         int n = 0;
 
