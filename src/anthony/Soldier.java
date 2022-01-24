@@ -146,7 +146,7 @@ public class Soldier extends Robot {
                 canMove[i] = true;
             for(RobotInfo r : enemies) {
                 if(rc.getLocation().add(Direction.allDirections()[i]).distanceSquaredTo(r.location) <= RobotType.SOLDIER.actionRadiusSquared) {
-                    if(r.type == RobotType.SOLDIER || r.type == RobotType.SAGE)
+                    if(r.type == RobotType.SOLDIER)
                         enemiesInRange[i]++;
                     canShootFrom[i] = true;
                 }

@@ -148,7 +148,7 @@ public class Sage extends Robot {
         }
         int myHoldStrength = 0;
         for (RobotInfo r : friends) {
-            if (r.type != SOLDIER && r.type != SAGE)
+            if (r.type != SOLDIER)
                 continue;
             int infDist = max(Math.abs(r.location.x - rc.getLocation().x), Math.abs(r.location.y - rc.getLocation().y));
             if (infDist <= nearestInfDistance)
