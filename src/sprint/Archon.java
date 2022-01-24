@@ -23,6 +23,7 @@ public class Archon extends Robot {
     private int vortexIndex = 0;
     private int income = 0;
     private int prevIncome = 0;
+    private int builders = 0; // builders built, does not get decremented when they die
     int totalHQ;
 
     Archon(RobotController r) throws GameActionException {
@@ -166,6 +167,21 @@ public class Archon extends Robot {
                 max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 20;
         double minerToSoldier = 0.6 - (rc.getRoundNum() / 5000.0) -
                 (rc.getMapWidth() * rc.getMapHeight() / 12800.0);
+
+        if (!underAttack && rc.getRoundNum() > 100 && builders == 0) {
+            if (buildInDirection(RobotType.BUILDER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)).opposite())) {
+                rc.writeSharedArray(INDEX_LAB, 1);
+                builders ++;
+            }
+        }
+
+        if (!underAttack && rc.readSharedArray(INDEX_LAB) == 1) {
+            // save lead for lab before building soldiers
+            if (rc.getTeamLeadAmount(rc.getTeam()) < 180 + 75) {
+                repair();
+                return;
+            }
+        }
 
         if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
                 (max_miners/1.5 > liveMiners ||

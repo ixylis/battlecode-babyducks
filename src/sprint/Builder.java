@@ -8,98 +8,111 @@ public class Builder extends Robot {
         super(r);
     }
     private MapLocation hqLoc = null;
+    private MapLocation labLoc = null;
+    private boolean builtLab = false;
     public void turn() throws GameActionException {
       rc.setIndicatorString("Cooldown: " + rc.getActionCooldownTurns());
       MapLocation me = rc.getLocation();
       if (hqLoc == null) {
         RobotInfo [] robots = rc.senseNearbyRobots(2, rc.getTeam());
-        for (RobotInfo robot : robots)
-          if (robot.type == RobotType.ARCHON)
+        for (RobotInfo robot : robots) {
+          if (robot.type == RobotType.ARCHON) {
             hqLoc = robot.location;
+            labLoc = hqLoc; // initialize to this until we actually build a lab
+          }
+        }
       }
       // if we can repair a building, do that
       boolean nearbyBuilding = false;
+      MapLocation buildingToRepair = null;
       RobotInfo [] friends = rc.senseNearbyRobots(5, rc.getTeam()); 
       for (RobotInfo robot : friends) {
-        if (rc.canRepair(robot.location) && robot.health < robot.type.health) {
-          rc.setIndicatorString("Repairing building");
-          nearbyBuilding = true;
-          rc.repair(robot.location);
+        if (robot.health < robot.type.health) {
+          if (rc.canRepair(robot.location)) {
+            rc.setIndicatorString("Repairing building");
+            nearbyBuilding = true;
+            if (rc.canRepair(robot.location)) rc.repair(robot.location);
+            return;
+          } else if (robot.type == RobotType.WATCHTOWER || robot.type == RobotType.ARCHON || robot.type == RobotType.LABORATORY) {
+            buildingToRepair = robot.location;
+            nearbyBuilding = true;
+          }
         }
       }
-      // suicide mission
-      if (me.distanceSquaredTo(hqLoc) <= 32 && rc.getTeamLeadAmount(rc.getTeam()) < 100 && rc.senseLead(me) == 0)
-        rc.disintegrate();
-
-      // try to move away from HQ
-      if (!nearbyBuilding && hqLoc != null && me.distanceSquaredTo(hqLoc) < 25) {
-        Direction dir = hqLoc.directionTo(me);
-        tryMoveImproved(rc, dir);
-      }
-
-      // build watchtowers, but only at least 3 squares away from HQ (to avoid spawn locking)
-      if (me.distanceSquaredTo(hqLoc) >= 25 && rc.getTeamLeadAmount(rc.getTeam()) > MAX_LEAD) {
-        //rc.setIndicatorString("Trying to build a watchtower!");
+      if (nearbyBuilding) {
+        // try to find a low-rubble square within range of building
+        int rubble = rc.senseRubble(me);
         for (Direction dir : directions) {
-          if (rc.canBuildRobot(WATCHTOWER, dir) && ((me.add(dir).x + me.add(dir).y) & 1) == 0) {
-            rc.buildRobot(WATCHTOWER, dir);
+          MapLocation newLoc = me.add(dir);
+          if (rc.canMove(dir) && rc.senseRubble(newLoc) < rubble && newLoc.distanceSquaredTo(buildingToRepair) < 5)
+            rc.move(dir);
+        }
+        return;
+      }
+      // go to corner of board and build a lab
+      MapLocation nearestCorner = corners[0];
+      for (MapLocation corner : corners) {
+        if ((me.distanceSquaredTo(corner) < me.distanceSquaredTo(nearestCorner) 
+              || hqLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared
+              || labLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared) 
+            && (hqLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared
+              && labLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared))
+          nearestCorner = corner;
+      }
+      Direction dir = me.directionTo(nearestCorner);
+      if (me.distanceSquaredTo(nearestCorner) <= 2 || 
+          (!builtLab && me.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared
+           && (rc.canSenseLocation(me.add(dir)) && rc.senseRubble(me.add(dir)) == 0
+             || (rc.canSenseLocation(me.add(dir.rotateLeft())) && rc.senseRubble(me.add(dir.rotateLeft())) == 0)
+             || (rc.canSenseLocation(me.add(dir.rotateRight())) && rc.senseRubble(me.add(dir.rotateRight())) == 0)))) {
+        Direction bestDir = dir;
+        Direction newDir;
+        int rubble = 100;
+        int newRubble;
+        if (rc.canSenseLocation(me.add(dir)) && rc.canBuildRobot(RobotType.LABORATORY, dir)) rubble = rc.senseRubble(me.add(dir));
+        newDir = dir.rotateLeft();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
           }
         }
-        if(rc.isActionReady()) {
-          for(RobotInfo r : rc.senseNearbyRobots(RobotType.BUILDER.actionRadiusSquared, rc.getTeam())) {
-            if(r.type == WATCHTOWER) {
-              if(rc.canMutate(r.location)) {
-                rc.mutate(r.location);
-
-              }
-            }
+        newDir = dir.rotateRight();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
           }
+        }
+
+        newDir = dir.rotateLeft().rotateLeft();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+        newDir = dir.rotateRight().rotateRight();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+
+        if (rc.canBuildRobot(RobotType.LABORATORY, bestDir)) {
+          builtLab = true;
+          labLoc = me.add(bestDir);
+          rc.buildRobot(RobotType.LABORATORY, bestDir);
+          rc.writeSharedArray(INDEX_LAB, 0);
         }
       } else {
-        rc.setIndicatorString("Not trying to build a watchtower!");
+        dir = bestMove(dir);
+        if (rc.canMove(dir)) rc.move(dir);
       }
-
-      if (!nearbyBuilding) {
-        moveRandom(rc);
-      }
-    }
-
-    void tryMoveImproved(RobotController rc, Direction dir) throws GameActionException {
-      double penalty = 2.0; // for moving 45-degree rotation from target
-      MapLocation me = rc.getLocation();
-      Direction bestDir = null;
-      double moveCost = Double.MAX_VALUE;
-      if (rc.canMove(dir)) {
-        if (rc.senseRubble(me.add(dir)) < 20) {
-          rc.move(dir);
-          return;
-        } else {
-          bestDir = dir;
-          moveCost = 1 + rc.senseRubble(me.add(dir)) / 20.0;
-        }
-      }
-      Direction newDir = dir.rotateLeft();
-      if (rc.canMove(newDir)) {
-        double newCost = (1 + rc.senseRubble(me.add(newDir)) / 20.0) * penalty;
-        if (newCost < moveCost) {
-          moveCost = newCost;
-          bestDir = newDir;
-        }
-      }
-      newDir = dir.rotateRight();
-      if (rc.canMove(newDir)) {
-        double newCost = (1 + rc.senseRubble(me.add(newDir)) / 20.0) * penalty;
-        if (newCost < moveCost) {
-          moveCost = newCost;
-          bestDir = newDir;
-        }
-      }
-      if (rc.canMove(bestDir))
-        rc.move(bestDir);
-    }
-    void moveRandom(RobotController rc) throws GameActionException {
-      rc.setIndicatorString("Moved randomly!");
-      Direction dir = directions[rng.nextInt(directions.length)];
-      tryMoveImproved(rc, dir);
     }
 }

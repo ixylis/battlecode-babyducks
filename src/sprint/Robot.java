@@ -22,6 +22,7 @@ public abstract class Robot {
     public static final int INDEX_HEALING = 30;
     public static final int MAX_HEALS = 3;
     public static final double HEALTH_FACTOR = 0.2;
+    public static final int INDEX_LAB = 54; // 1 if saving lead for lab, 0 if lab is built
     public static final int INDEX_HQBAD = 55;
     public static final int INDEX_RELOCATE = 63;
 
