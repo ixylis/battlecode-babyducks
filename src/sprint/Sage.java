@@ -114,7 +114,7 @@ public class Sage extends Robot {
             }
         }
         //if we aren't shooting any time soon, retreat
-        if(rc.getActionCooldownTurns() > 50) {
+        if(rc.getActionCooldownTurns() > 50 || rc.getRoundNum()%25<19) {
             if(bestRetreat!=8) //don't bother if the optimal move is to stay where you are
                 rc.move(Direction.allDirections()[bestRetreat]);
         } else {
@@ -130,7 +130,25 @@ public class Sage extends Robot {
             }
             if(bestAdvance != 8)
                 rc.move(Direction.allDirections()[bestAdvance]);
-            if(rc.isActionReady()) attack();
+            RobotInfo[] enemies2 = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
+            int maxDmg=0;
+            for(RobotInfo r : enemies2) {
+                    switch(r.type) {
+                    case SAGE:
+                        maxDmg+=Math.max(r.health, 22);
+                        break;
+                    case SOLDIER:
+                        maxDmg+=Math.max(r.health, 11);
+                        break;
+                    case MINER:
+                        maxDmg+=Math.max(r.health, 8);
+                        break;
+                    default: break;
+                    }
+            }
+            if(maxDmg < 2*dmg[bestAdvance] || rc.getHealth() < rc.getMovementCooldownTurns()*2) {
+                if(rc.isActionReady()) attack();
+            }
         }
         return true;
     }
