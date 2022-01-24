@@ -75,7 +75,7 @@ public abstract class Robot {
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
     
-    public static final boolean DEBUG=true;
+    public static final boolean DEBUG=false;
     public final Random rng;
     RobotController rc;
     Robot(RobotController r) throws GameActionException {
@@ -117,7 +117,7 @@ public abstract class Robot {
                     for(int i=recentLocationsIndex+9;i>recentLocationsIndex;i--) {
                         if(recentLocations[i%10]!=null) {
                             MapLocation next = recentLocations[i%10];
-                            rc.setIndicatorLine(last, next, 255, 0, 0);
+                            // rc.setIndicatorLine(last, next, 255, 0, 0);
                             last=next;
                         }
                     }
@@ -640,6 +640,7 @@ public abstract class Robot {
         return best;
     }
     void displayUnexploredChunks() throws GameActionException {
+        if(!DEBUG) return;
         int x0 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+0);
         int x1 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+1);
         int x2 = rc.readSharedArray(INDEX_EXPLORED_CHUNKS+2);
@@ -1202,7 +1203,8 @@ public abstract class Robot {
         }
 
         if(to!=null)
-            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
+            if(DEBUG)
+                rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
 
         int b5 = Clock.getBytecodeNum();
         //navpretty
@@ -1283,7 +1285,7 @@ public abstract class Robot {
         case 13:b=c96;n=25;current=me.translate(1,0);if(c98<b){b=c98;n=27;}if(c97<b){b=c97;n=26;}if(c86<b){b=c86;n=12;}if(c88<b){b=c88;n=14;}if(c76<b){b=c76;n=-1;}if(c78<b){b=c78;n=1;}if(c87<b){b=c87;n=13;}break;
         case 0:b=c66;n=-14;current=me.translate(0,0);if(c68<b){b=c68;n=-12;}if(c86<b){b=c86;n=12;}if(c88<b){b=c88;n=14;}if(c67<b){b=c67;n=-13;}if(c76<b){b=c76;n=-1;}if(c78<b){b=c78;n=1;}if(c87<b){b=c87;n=13;}break;
         default:break outer;}
-        if(prev!=null) rc.setIndicatorLine(prev, current, 0, 255, 255);
+       // if(prev!=null) rc.setIndicatorLine(prev, current, 0, 255, 255);
         prev=current;
         }
         lastNavEndpoint=prev;

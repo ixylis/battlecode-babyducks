@@ -24,7 +24,7 @@ public class Soldier extends Robot {
         if (rc.isActionReady()) attack();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        //rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
 
     }
 
@@ -124,7 +124,7 @@ public class Soldier extends Robot {
                     closerFriend = true;
                 friendlyStrength += 3*100/(10+rc.senseRubble(r.location));
                 friendlyHP += r.health;
-                rc.setIndicatorDot(r.location, 0, 255, 0);
+                //rc.setIndicatorDot(r.location, 0, 255, 0);
             }
         }
         int[] nearbyRubble = new int[9];
@@ -305,7 +305,7 @@ public class Soldier extends Robot {
             */
         rc.setIndicatorString("eHP "+enemyHP+" eS "+enemyStrength+" fHP "+friendlyHP+" fS "+friendlyStrength+
                 " "+Direction.allDirections()[bestDir]+" "+shouldAdvance+" "+bestMoveI+shouldRetreat);
-        rc.setIndicatorDot(nearest, 255, 0, 0);
+        //rc.setIndicatorDot(nearest, 255, 0, 0);
         return true;
     }
     private void oldMicro() {

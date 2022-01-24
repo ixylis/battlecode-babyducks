@@ -32,7 +32,7 @@ public class Miner extends Robot {
         } else {
             lastSuitabilityRound = rc.getRoundNum();
             planMovement();
-            super.updateEnemySoliderLocations();
+            super.updateEnemyLocations();
         }
         //if(rc.getID() != 13202)
         //rc.setIndicatorString(Arrays.toString(suitability));

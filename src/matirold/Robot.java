@@ -188,9 +188,7 @@ public abstract class Robot {
 
     public abstract void turn() throws GameActionException;
 
-    /**
-     * Array containing all the possible movement directions.
-     */
+    /** Array containing all the possible movement directions. */
     static final Direction[] directions = {
             Direction.NORTH,
             Direction.NORTHEAST,
