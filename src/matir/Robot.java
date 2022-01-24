@@ -259,12 +259,14 @@ public abstract class Robot {
     }
 
     public final int chunkToInt(MapLocation l) {
-        return ((l.x >> 2) << 4) | (l.y >> 2);
+        return 20 * l.x + l.y;
     }
 
-    public final MapLocation intToChunk(int x) {
-        return new MapLocation((((x >> 4) & 0xf) << 2) + 1 + rng.nextInt(1),
-                ((x & 0xf) << 2) + 1 + rng.nextInt(1));
+    public final MapLocation intToChunk(int t) {
+        int z = t & 0x1FF;
+
+        return new MapLocation((z / 20) * 3 + 1,
+                (z % 20) * 3 + 1);
     }
 
     public final int locToInt(MapLocation l) {
@@ -362,10 +364,12 @@ public abstract class Robot {
     }
 
     void removeOldEnemySoldierLocations() throws GameActionException {
-        for (int i = INDEX_ENEMY_UNIT_LOCATION; i < INDEX_ENEMY_UNIT_LOCATION + NUM_ENEMY_UNIT_CHUNKS; i++) {
+        if((rc.getRoundNum() & 0xFF) != 0) return;
+        for (int i = INDEX_ENEMY_UNIT_LOCATION;
+             i < INDEX_ENEMY_UNIT_LOCATION + NUM_ENEMY_UNIT_CHUNKS; i++) {
             int x = rc.readSharedArray(i);
             if ((x & 0xff) == 0xff) continue;
-            if (((rc.getRoundNum() >> 4) & 1) != (x >> 8) || rc.getRoundNum() < 2)
+            if (((rc.getRoundNum() >> 4) & 1) == (x >> 8) || rc.getRoundNum() < 2)
                 rc.writeSharedArray(i, 0xff);
         }
     }
@@ -377,30 +381,32 @@ public abstract class Robot {
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             //enemySoldiers[i] = Robot.intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION+i));
             int x = rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i);
-            enemySoldierChunks[i] = x & 0xff;
-
+            enemySoldierChunks[i] = x & 0x1FF;
         }
+
         for (RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent())) {
             if (isAttacker(r)) {
                 int x = chunkToInt(r.location);
                 boolean found = false;
 
+                int findi;
                 for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
                     if (enemySoldierChunks[i] == x) {
+                        findi = i;
                         break;
                     }
                 }
 
                 if (!found) {
                     for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
-                        if (enemySoldierChunks[i] == 0xff) {//0xff is the empty slot code
+                        if (enemySoldierChunks[i] == 0x1FF) {//0xff is the empty slot code
                             rc.writeSharedArray(i + INDEX_ENEMY_UNIT_LOCATION,
                                     x | (((rc.getRoundNum() >> 4) & 1) << 8));
                             return;
                         }
                     }
-
                 }
+
             }
         }
     }
@@ -4212,6 +4218,7 @@ public abstract class Robot {
 
         return rt == SOLDIER ||
                 rt == WATCHTOWER ||
-                rt == SAGE;
+                rt == SAGE ||
+                rt == BUILDER;
     }
 }
