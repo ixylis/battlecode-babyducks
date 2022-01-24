@@ -96,6 +96,7 @@ public class Miner extends Robot {
                     nearest=r;
                 int x=r.location.x-myx;
                 int y=r.location.y-myy;
+                /*
                 hasNearbyMiner[x+4][y+4] = true;
                 hasNearbyMiner[x+6][y+4] = true;
                 hasNearbyMiner[x+5][y+4] = true;
@@ -105,6 +106,7 @@ public class Miner extends Robot {
                 hasNearbyMiner[x+4][y+6] = true;
                 hasNearbyMiner[x+6][y+6] = true;
                 hasNearbyMiner[x+5][y+6] = true;
+                */
             }
         }
 
@@ -396,7 +398,7 @@ public class Miner extends Robot {
         //MapLocation recentLoc = recentLocations[(recentLocationsIndex+9)%10];
         for(RobotInfo r : nearby) {
             if(r.type == MINER) {
-                setMovementCostsFromLocation10(r.location);
+                setMovementCostsFromLocation2(r.location);
             } else if(r.type == RobotType.ARCHON) {
                 setMovementCostsFromLocation2(r.location);
             }
@@ -406,7 +408,7 @@ public class Miner extends Robot {
             if(m!=null && me.isWithinDistanceSquared(m, 20))
                 setMovementCostsFromLocation2(m);
         }
-        final int C = 1;
+        final int C = 2;
         MapLocation m;int ux,uy;
         if(planMovementCounter%4==0 || mu1==null) mu1 = super.getNearestUnexploredChunk(rc.getLocation().translate(4,4));m=mu1;
         if(m==null) return;

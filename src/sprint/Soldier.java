@@ -155,9 +155,6 @@ public class Soldier extends Robot {
                 bestDir = i;
             }
         }
-        if(rc.getID() == 12792) {
-            //rc.setIndicatorString(Arrays.toString(enemiesInRange)+s+rc.canMove(Direction.SOUTH));
-        }
         //bestDir is the location with the least rubble*(enemies in range) which can shoot at least 1 enemy
         //if you can shoot from where you are standing, do that first (if it's rubble is low)
         if(canShootFrom[8] && nearbyRubble[8]==nearbyRubble[bestDir])
