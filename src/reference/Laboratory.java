@@ -16,7 +16,7 @@ public class Laboratory extends Robot {
 
     public void turn() throws GameActionException {
         int income = rc.readSharedArray(INDEX_INCOME) / 80;
-        int numLabs = rc.readSharedArray(INDEX_LAB);
+        int numLabs = readMisc(BIT_LAB, NUM_LAB);
         if (rc.getMode() == RobotMode.PROTOTYPE) return;
 
         // convert lead to gold if the conversion rate is better than 5:1

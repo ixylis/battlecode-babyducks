@@ -87,8 +87,9 @@ public abstract class Robot {
     public static final int INDEX_MISC = 63; // one bit things
     public static final int BIT_RELOCATE = 0;
     public static final int BIT_SYMMETRY = 1;
-    public static final int BIT_LAB = 2;
-    public static final int BIT_HEALING = 3;
+    public static final int BIT_HEALING = 2;
+    public static final int BIT_LAB = 3;
+    public static final int NUM_LAB = 3;
 
     MapLocation myLoc;
     MapLocation[] corners;
@@ -146,7 +147,7 @@ public abstract class Robot {
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
 
-    public static final boolean DEBUG = false;
+    public static final boolean DEBUG = true;
     public final Random rng;
     RobotController rc;
 
@@ -169,6 +170,7 @@ public abstract class Robot {
     MapLocation[] recentLocations = new MapLocation[10];
     int recentLocationsIndex = 0;
     int lastMoveTurn = 0;
+    int round = 0;
 
     void run() {
         // initialize hqLoc to be adjacent HQ
@@ -178,10 +180,10 @@ public abstract class Robot {
         }
         while (true) {
             try {
+                round = rc.getRoundNum();
                 myLoc = rc.getLocation();
                 turn();
-                if(rc.getRoundNum() % 7 == 3) saveInfo();
-                updateInfo();
+                if (rc.getRoundNum() % 7 == 3) saveInfo();
 
                 if (!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
                     recentLocationsIndex = (recentLocationsIndex + 1) % 10;
@@ -189,15 +191,17 @@ public abstract class Robot {
                     lastMoveTurn = rc.getRoundNum();
                 }
                 if (DEBUG) {
-                    MapLocation last = rc.getLocation();
-                    for (int i = recentLocationsIndex + 9; i > recentLocationsIndex; i--) {
-                        if (recentLocations[i % 10] != null) {
-                            MapLocation next = recentLocations[i % 10];
-                            // rc.setIndicatorLine(last, next, 255, 0, 0);
-                            last = next;
-                        }
+                }
+
+                MapLocation last = rc.getLocation();
+                for (int i = recentLocationsIndex + 9; i > recentLocationsIndex; i--) {
+                    if (recentLocations[i % 10] != null) {
+                        MapLocation next = recentLocations[i % 10];
+                        rc.setIndicatorLine(last, next, 255, 0, 0);
+                        last = next;
                     }
                 }
+                updateInfo();
             } catch (GameActionException e) {
                 rc.setIndicatorString(e.getStackTrace()[2].toString());
             } catch (RuntimeException e) {
@@ -208,26 +212,27 @@ public abstract class Robot {
                 }
                 //rc.setIndicatorString(e.toString());
             }
+            if(round != rc.getRoundNum()) continue;
             Clock.yield();
         }
     }
 
     double getHeat(MapLocation loc) {
         double myHeat = 0, enemyHeat = 0;
-        for(int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+        for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             enemyHeat += chunkToPower(savedEnemyUnitLocs[i]) /
                     (1 + loc.distanceSquaredTo(chunkToloc(
                             savedEnemyUnitLocs[i])));
         }
         myHeat = -enemyHeat;
-        for(int i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
-            if(((savedMyLocs[i] >> 7) & 1) == 1)
-            myHeat += chunkToPowerDiff(savedMyLocs[i]) /
-                    (1 + loc.distanceSquaredTo(chunkToloc(
-                            savedMyLocs[i])));
+        for (int i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
+            if (((savedMyLocs[i] >> 7) & 1) == 1)
+                myHeat += chunkToPowerDiff(savedMyLocs[i]) /
+                        (1 + loc.distanceSquaredTo(chunkToloc(
+                                savedMyLocs[i])));
         }
         double ratio = max(myHeat, 0.01) / max(enemyHeat, 0.01);
-        return log(ratio)/log(2);
+        return log(ratio) / log(2);
     }
 
     double chunkToPowerDiff(int chunk) {
@@ -243,33 +248,50 @@ public abstract class Robot {
         sss = 6: [7, 10)
         sss = 7: [10, inf)
         */
-        switch(s) {
-            case 0: return q * 0.25;
-            case 1: return q * 0.85;
-            case 2: return q * 1.6;
-            case 3: return q * 2.5;
-            case 4: return q * 3.75;
-            case 5: return q * 5.75;
-            case 6: return q * 8.5;
-            case 7: return q * 15;
+        switch (s) {
+            case 0:
+                return q * 0.25;
+            case 1:
+                return q * 0.85;
+            case 2:
+                return q * 1.6;
+            case 3:
+                return q * 2.5;
+            case 4:
+                return q * 3.75;
+            case 5:
+                return q * 5.75;
+            case 6:
+                return q * 8.5;
+            case 7:
+                return q * 15;
         }
 
         return 0;
     }
 
     int readMisc(int bit) throws GameActionException {
-        return (rc.readSharedArray(INDEX_MISC) >> bit & 1);
+        return readMisc(bit, 1);
+    }
+
+    int readMisc(int bit, int num) throws GameActionException {
+        return ((rc.readSharedArray(INDEX_MISC) >> bit) &
+                ((1 << num) - 1));
     }
 
     void writeMisc(int bit, int out) throws GameActionException {
+        writeMisc(bit, out, 1);
+    }
+
+    void writeMisc(int bit, int out, int num) throws GameActionException {
         rc.writeSharedArray(INDEX_MISC,
                 (rc.readSharedArray(INDEX_MISC)
-                        & (0xFFFF - (1 << bit))) | (out << bit));
+                        & (0xFFFF - (((1 << num) - 1) << bit))) | (out << bit));
     }
 
     void updateInfo() throws GameActionException {
         updateEnemyHQs();
-        if(isAttacker(rc.getType()) &&
+        if (isAttacker(rc.getType()) &&
                 rng.nextInt() < 0.5) {
             updateMyLocation();
         }
@@ -284,8 +306,8 @@ public abstract class Robot {
 
         for (int i = 0; i < NUM_ENEMY_ETC_CHUNKS; i++) {
             int x = rc.readSharedArray(i + INDEX_ENEMY_ETC_LOCATION);
-            savedEnemyEtcLocs[2*i] = x & 0xFF;
-            savedEnemyEtcLocs[2*i+1] = (x >> 8) & 0xFF;
+            savedEnemyEtcLocs[2 * i] = x & 0xFF;
+            savedEnemyEtcLocs[2 * i + 1] = (x >> 8) & 0xFF;
         }
 
         for (int i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
@@ -298,7 +320,7 @@ public abstract class Robot {
     }
 
     void updateLead() throws GameActionException {
-        if(Clock.getBytecodesLeft() < 2000) return;
+        if (Clock.getBytecodesLeft() < 2000) return;
 
         int[] leadInts = new int[NUM_LEAD_DEPOSIT_INTS];
         int[] leadChunks = new int[NUM_LEAD_DEPOSITS];
@@ -325,7 +347,7 @@ public abstract class Robot {
             if (j < NUM_LEAD_DEPOSIT_INTS - 1)
                 dump |= leadInts[j + 1] << 16;
             leadChunks[i] = (dump >> k) & ((1 << NUM_LEAD_DEPOSIT_BITS) - 1);
-            if(leadChunks[i] == 0x3FF) return;
+            if (leadChunks[i] == 0x3FF) return;
             if ((leadChunks[i] & 0x7F) == l) return;
             if ((leadChunks[i] >> 7) < low) {
                 low = leadChunks[i] >> 7;
@@ -351,10 +373,10 @@ public abstract class Robot {
         int k = (lowi * NUM_LEAD_DEPOSIT_INTS) - (j * NUM_LEAD_DEPOSITS);
         int m = k + NUM_LEAD_DEPOSIT_BITS - 16;
         rc.writeSharedArray(j, (leadInts[j] & ((1 << k) - 1)) |
-                ((out & ((1 << (NUM_LEAD_DEPOSIT_BITS-m)) - 1)) << k));
+                ((out & ((1 << (NUM_LEAD_DEPOSIT_BITS - m)) - 1)) << k));
         if (m > 0) {
             rc.writeSharedArray(j + 1,
-                    (leadInts[j+1] & ((1 << 16) - (1 << m))) |
+                    (leadInts[j + 1] & ((1 << 16) - (1 << m))) |
                             (out >> (NUM_LEAD_DEPOSIT_BITS - m)));
         }
 
@@ -367,7 +389,7 @@ public abstract class Robot {
         int dump = savedLead[j];
 
         if (j < NUM_LEAD_DEPOSIT_INTS - 1)
-            dump |= savedLead[j+1] << 16;
+            dump |= savedLead[j + 1] << 16;
 
         return (dump >> k) & ((1 << NUM_LEAD_DEPOSIT_BITS) - 1);
     }
@@ -425,6 +447,204 @@ public abstract class Robot {
     public void moveToward(MapLocation to) throws GameActionException {
         nav(to);
         return;
+    }
+
+    public void moveTowardOld2(MapLocation to) throws GameActionException {
+        if (Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), to, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        MapLocation me = rc.getLocation();
+        int dx = to.x - me.x, dy = to.y - me.y;
+        Direction ideal = null;
+        Direction ok = null, ok2 = null;
+        Direction mediocre = null, mediocre2 = null;
+        Direction sad = null, sad2 = null;
+        boolean onDiagonal = false;
+        boolean onEdge = false;
+        if (dx < 0) {
+            if (dy < 0) {
+                ideal = Direction.SOUTHWEST;
+                if (dx < dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.SOUTH;
+                } else if (dx > dy) {
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else if (dy > 0) {
+                ideal = Direction.NORTHWEST;
+                if (dx < -dy) {
+                    ok = Direction.WEST;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.NORTH;
+                } else if (dx > -dy) {
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.WEST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.WEST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else {
+                ideal = Direction.WEST;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.SOUTHWEST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else if (dx > 0) {
+            if (dy < 0) {
+                ideal = Direction.SOUTHEAST;
+                if (-dx < dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTHEAST;
+                    mediocre = Direction.SOUTH;
+                } else if (-dx > dy) {
+                    ok = Direction.SOUTH;
+                    ok2 = Direction.SOUTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTH;
+                    mediocre = Direction.NORTHEAST;
+                    mediocre2 = Direction.SOUTHWEST;
+                }
+            } else if (dy > 0) {
+                ideal = Direction.NORTHEAST;
+                if (-dx < -dy) {
+                    ok = Direction.EAST;
+                    ok2 = Direction.SOUTHEAST;
+                    mediocre = Direction.NORTH;
+                } else if (-dx > -dy) {
+                    ok = Direction.NORTH;
+                    ok2 = Direction.NORTHWEST;
+                    mediocre = Direction.EAST;
+                } else {
+                    onDiagonal = true;
+                    ok = Direction.EAST;
+                    ok2 = Direction.NORTH;
+                    mediocre = Direction.NORTHWEST;
+                    mediocre2 = Direction.SOUTHEAST;
+                }
+            } else {
+                ideal = Direction.EAST;
+                ok = Direction.NORTHEAST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.NORTH;
+                mediocre2 = Direction.SOUTH;
+                onEdge = true;
+            }
+        } else {
+            if (dy < 0) {
+                ideal = Direction.SOUTH;
+                ok = Direction.SOUTHWEST;
+                ok2 = Direction.SOUTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else if (dy > 0) {
+                ideal = Direction.NORTH;
+                ok = Direction.NORTHWEST;
+                ok2 = Direction.NORTHEAST;
+                mediocre = Direction.WEST;
+                mediocre2 = Direction.EAST;
+                onEdge = true;
+            } else {
+                return; //we are at the destination!
+            }
+        }
+        MapLocation recentLoc = recentLocations[(recentLocationsIndex + 9) % 10];
+        Direction lastMoveDir = (recentLoc == null || to != lastMoveTowardTarget) ? null : me.directionTo(recentLoc);
+        lastMoveTowardTarget = to;
+        while (frustration < 111) {
+            rc.setIndicatorString("frustration " + frustration + " " + ideal);
+            Direction d = ideal;
+            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = 0;
+                return;
+            }
+            d = ok;
+            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal ? 15 : 5;
+                return;
+            }
+            d = ok2;
+            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration = onDiagonal ? 15 : 5;
+                return;
+            }
+            d = mediocre;
+            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += onEdge ? 20 : 15;
+                return;
+            }
+            d = mediocre2;
+            if (lastMoveDir != d && d != null && rc.canMove(d) && rc.senseRubble(me.add(d)) <= frustration) {
+                rc.move(d);
+                frustration += 20;
+                return;
+            }
+            frustration += 10;
+        }
+        frustration = 100;
+    }
+
+    public void moveTowardOld(MapLocation l) throws GameActionException {
+        if (Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        if (!rc.isMovementReady()) return;
+        if (rc.getLocation().equals(l)) return;
+        if (rc.getLocation().isAdjacentTo(l)) {
+            Direction d = rc.getLocation().directionTo(l);
+            if (rc.canMove(d))
+                rc.move(d);
+            return;
+        }
+        moveInDirection(rc.getLocation().directionTo(l));
+    }
+
+    public void moveTowardMatir(MapLocation l) throws GameActionException {
+        moveTowardMatir(l, 0.05);
+    }
+
+    public void moveTowardMatir(MapLocation l, double randomness) throws GameActionException {
+        if (Robot.DEBUG) {
+            rc.setIndicatorLine(rc.getLocation(), l, 255, 255, 0);
+            //System.out.println("Navigating toward " + l);
+        }
+        if (!rc.isMovementReady()) return;
+        if (rc.getLocation().equals(l)) return;
+        if (rc.getLocation().isAdjacentTo(l)) {
+            Direction d = rc.getLocation().directionTo(l);
+            if (rc.canMove(d))
+                rc.move(d);
+            return;
+        }
+        Direction d = rc.getLocation().directionTo(l);
+        Direction[] dd = {d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(), d.rotateRight().rotateRight()};
+        Direction moveDir = rng.nextDouble() < randomness ?
+                randDirByWeight(dd, new TargetWeight(l)) : bestMove(d);
+        if (rc.canMove(moveDir)) rc.move(moveDir);
     }
 
     public Direction randDirByWeight(Direction[] dirs, Weightage wt) {
@@ -649,7 +869,7 @@ public abstract class Robot {
         int e = (rc.getRoundNum() >> 4) & 1;
 
         for (RobotInfo r : rbs) {
-            if(Clock.getBytecodesLeft() < 200) return;
+            if (Clock.getBytecodesLeft() < 200) return;
 
             if (!isAttacker(r)) {
                 if (!freeChunks) continue;
@@ -725,7 +945,7 @@ public abstract class Robot {
         }
 
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
-            if(Clock.getBytecodesLeft() < 200) return;
+            if (Clock.getBytecodesLeft() < 200) return;
             if (newEnemyUnitChunks[i] != 0xFFFF) {
                 rc.writeSharedArray(INDEX_ENEMY_UNIT_LOCATION + i, newEnemyUnitChunks[i]);
             }
@@ -802,22 +1022,23 @@ public abstract class Robot {
 
         return nearest;
     }
+
     MapLocation getNearestEnemyChunk() throws GameActionException {
         MapLocation nearest = getNearestEnemySoldierChunk();
 
-        for(int i = 0; i < NUM_ENEMY_ETC_CHUNKS; i++) {
+        for (int i = 0; i < NUM_ENEMY_ETC_CHUNKS; i++) {
             int z = rc.readSharedArray(INDEX_ENEMY_ETC_LOCATION + i);
             int x1 = z & 0xFF;
             int x2 = (z >> 8) & 0xFF;
             MapLocation l1 = chunkToloc(x1);
             MapLocation l2 = chunkToloc(x2);
-            if(!(x1 == 0xFF)) {
+            if (!(x1 == 0xFF)) {
                 if (nearest == null || rc.getLocation().distanceSquaredTo(l1) <
                         rc.getLocation().distanceSquaredTo(nearest)) {
                     nearest = l1;
                 }
             }
-            if(!(x2 == 0xFF)) {
+            if (!(x2 == 0xFF)) {
                 if (nearest == null || rc.getLocation().distanceSquaredTo(l2) <
                         rc.getLocation().distanceSquaredTo(nearest)) {
                     nearest = l2;
@@ -1201,7 +1422,7 @@ public abstract class Robot {
 
     void updateMyLocation() throws GameActionException {
         if (Clock.getBytecodesLeft() < 3200) return;
-        if(hqLoc == null) return;
+        if (hqLoc == null) return;
 
         int[] chunk = new int[NUM_MY_UNIT_CHUNKS];
         int l = locToEtc(myLoc);
@@ -1246,7 +1467,7 @@ public abstract class Robot {
         RobotInfo[] friends = rc.senseNearbyRobots(
                 rc.getType().visionRadiusSquared, rc.getTeam());
 
-        if(Clock.getBytecodesLeft() <
+        if (Clock.getBytecodesLeft() <
                 1200 + (friends.length + enemies.length) * 120) return;
 
         int n = 0;
@@ -1296,7 +1517,7 @@ public abstract class Robot {
         rc.writeSharedArray(myIndex, l | (f << 7) | (q << 8) | (s << 9) |
                 (r << 12) | (b << 14) | (a << 15));
 
-        rc.setIndicatorDot(chunkToloc(l), 100 + s*20, 100 + s*20, 0);
+        rc.setIndicatorDot(chunkToloc(l), 100 + s * 20, 100 + s * 20, 0);
     }
 
     double rubble(MapLocation loc) throws GameActionException {
@@ -1377,7 +1598,11 @@ public abstract class Robot {
          * for computing this min, a square outside of vision range is always cost = euclidean distance*10
          */
 
-
+        //if you are close, use the old nav code.
+        if (to != null && rc.getLocation().isWithinDistanceSquared(to, 13)) {
+            moveTowardOld2(to);
+            return;
+        }
         int b0 = Clock.getBytecodeNum();
 
         MapLocation me = rc.getLocation();
@@ -4752,6 +4977,7 @@ public abstract class Robot {
     public boolean isAttacker(RobotType rt) {
         return rt != LABORATORY && rt != MINER;
     }
+
     public boolean isAttacker(RobotInfo ri) {
         return isAttacker(ri.type);
     }

@@ -108,7 +108,7 @@ public class Builder extends Robot {
           builtLab = true;
           labLoc = me.add(bestDir);
           rc.buildRobot(RobotType.LABORATORY, bestDir);
-          rc.writeSharedArray(INDEX_LAB, 0);
+          writeMisc(BIT_LAB, 0);
         }
       } else {
         dir = bestMove(dir);

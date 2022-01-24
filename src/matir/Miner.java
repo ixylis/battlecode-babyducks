@@ -250,7 +250,7 @@ public class Miner extends Robot {
             frustration = 1;
 
             moveToward(null);
-            if(target != null)
+            if (target != null)
                 rc.setIndicatorDot(target, 255, 255, 255);
         }
     }
@@ -4462,6 +4462,8 @@ public class Miner extends Robot {
         for (RobotInfo r : nearby) {
             if (r.type == MINER) {
                 setMovementCostsFromLocation2(r.location);
+            } else if (r.type == RobotType.ARCHON) {
+                setMovementCostsFromLocation2(r.location);
             }
         }
         for (int i = 6; i < 7; i++) {
@@ -4469,6 +4471,7 @@ public class Miner extends Robot {
             if (m != null && me.isWithinDistanceSquared(m, 20))
                 setMovementCostsFromLocation2(m);
         }
+        final int C = 2;
         MapLocation m;
         int ux, uy;
         if (planMovementCounter % 4 == 0 || mu1 == null)
@@ -4477,52 +4480,52 @@ public class Miner extends Robot {
         if (m == null) return;
         ux = m.x - myx;
         uy = m.y - myy;
-        c9c += (ux + -2) * (ux + -2) + (uy + -5) * (uy + -5);
-        cc9 += (ux + -5) * (ux + -5) + (uy + -2) * (uy + -2);
-        c8c += (ux + -1) * (ux + -1) + (uy + -5) * (uy + -5);
-        cc8 += (ux + -5) * (ux + -5) + (uy + -1) * (uy + -1);
-        c7c += (ux + 0) * (ux + 0) + (uy + -5) * (uy + -5);
-        cab += (ux + -3) * (ux + -3) + (uy + -4) * (uy + -4);
-        cba += (ux + -4) * (ux + -4) + (uy + -3) * (uy + -3);
-        cc7 += (ux + -5) * (ux + -5) + (uy + 0) * (uy + 0);
+        c9c += C * ((ux + -2) * (ux + -2) + (uy + -5) * (uy + -5));
+        cc9 += C * ((ux + -5) * (ux + -5) + (uy + -2) * (uy + -2));
+        c8c += C * ((ux + -1) * (ux + -1) + (uy + -5) * (uy + -5));
+        cc8 += C * ((ux + -5) * (ux + -5) + (uy + -1) * (uy + -1));
+        c7c += C * ((ux + 0) * (ux + 0) + (uy + -5) * (uy + -5));
+        cab += C * ((ux + -3) * (ux + -3) + (uy + -4) * (uy + -4));
+        cba += C * ((ux + -4) * (ux + -4) + (uy + -3) * (uy + -3));
+        cc7 += C * ((ux + -5) * (ux + -5) + (uy + 0) * (uy + 0));
         if (planMovementCounter % 4 == 1 || mu2 == null)
             mu2 = super.getNearestUnexploredChunk(rc.getLocation().translate(4, -4));
         m = mu2;
         if (m == null) return;
         ux = m.x - myx;
         uy = m.y - myy;
-        c92 += (ux + -2) * (ux + -2) + (uy + 5) * (uy + 5);
-        cc5 += (ux + -5) * (ux + -5) + (uy + 2) * (uy + 2);
-        c82 += (ux + -1) * (ux + -1) + (uy + 5) * (uy + 5);
-        cc6 += (ux + -5) * (ux + -5) + (uy + 1) * (uy + 1);
-        c72 += (ux + 0) * (ux + 0) + (uy + 5) * (uy + 5);
-        ca3 += (ux + -3) * (ux + -3) + (uy + 4) * (uy + 4);
-        cb4 += (ux + -4) * (ux + -4) + (uy + 3) * (uy + 3);
+        c92 += C * ((ux + -2) * (ux + -2) + (uy + 5) * (uy + 5));
+        cc5 += C * ((ux + -5) * (ux + -5) + (uy + 2) * (uy + 2));
+        c82 += C * ((ux + -1) * (ux + -1) + (uy + 5) * (uy + 5));
+        cc6 += C * ((ux + -5) * (ux + -5) + (uy + 1) * (uy + 1));
+        c72 += C * ((ux + 0) * (ux + 0) + (uy + 5) * (uy + 5));
+        ca3 += C * ((ux + -3) * (ux + -3) + (uy + 4) * (uy + 4));
+        cb4 += C * ((ux + -4) * (ux + -4) + (uy + 3) * (uy + 3));
         if (planMovementCounter % 4 == 2 || mu3 == null)
             mu3 = super.getNearestUnexploredChunk(rc.getLocation().translate(-4, -4));
         m = mu3;
         if (m == null) return;
         ux = m.x - myx;
         uy = m.y - myy;
-        c25 += (ux + 5) * (ux + 5) + (uy + 2) * (uy + 2);
-        c52 += (ux + 2) * (ux + 2) + (uy + 5) * (uy + 5);
-        c26 += (ux + 5) * (ux + 5) + (uy + 1) * (uy + 1);
-        c62 += (ux + 1) * (ux + 1) + (uy + 5) * (uy + 5);
-        c34 += (ux + 4) * (ux + 4) + (uy + 3) * (uy + 3);
-        c43 += (ux + 3) * (ux + 3) + (uy + 4) * (uy + 4);
+        c25 += C * ((ux + 5) * (ux + 5) + (uy + 2) * (uy + 2));
+        c52 += C * ((ux + 2) * (ux + 2) + (uy + 5) * (uy + 5));
+        c26 += C * ((ux + 5) * (ux + 5) + (uy + 1) * (uy + 1));
+        c62 += C * ((ux + 1) * (ux + 1) + (uy + 5) * (uy + 5));
+        c34 += C * ((ux + 4) * (ux + 4) + (uy + 3) * (uy + 3));
+        c43 += C * ((ux + 3) * (ux + 3) + (uy + 4) * (uy + 4));
         if (planMovementCounter % 4 == 3 || mu4 == null)
             mu4 = super.getNearestUnexploredChunk(rc.getLocation().translate(-4, 4));
         m = mu4;
         if (m == null) return;
         ux = m.x - myx;
         uy = m.y - myy;
-        c29 += (ux + 5) * (ux + 5) + (uy + -2) * (uy + -2);
-        c5c += (ux + 2) * (ux + 2) + (uy + -5) * (uy + -5);
-        c28 += (ux + 5) * (ux + 5) + (uy + -1) * (uy + -1);
-        c6c += (ux + 1) * (ux + 1) + (uy + -5) * (uy + -5);
-        c27 += (ux + 5) * (ux + 5) + (uy + 0) * (uy + 0);
-        c3a += (ux + 4) * (ux + 4) + (uy + -3) * (uy + -3);
-        c4b += (ux + 3) * (ux + 3) + (uy + -4) * (uy + -4);
+        c29 += C * ((ux + 5) * (ux + 5) + (uy + -2) * (uy + -2));
+        c5c += C * ((ux + 2) * (ux + 2) + (uy + -5) * (uy + -5));
+        c28 += C * ((ux + 5) * (ux + 5) + (uy + -1) * (uy + -1));
+        c6c += C * ((ux + 1) * (ux + 1) + (uy + -5) * (uy + -5));
+        c27 += C * ((ux + 5) * (ux + 5) + (uy + 0) * (uy + 0));
+        c3a += C * ((ux + 4) * (ux + 4) + (uy + -3) * (uy + -3));
+        c4b += C * ((ux + 3) * (ux + 3) + (uy + -4) * (uy + -4));
         planMovementCounter++;
     }
 

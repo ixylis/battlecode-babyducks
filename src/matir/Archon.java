@@ -127,8 +127,10 @@ public class Archon extends Robot {
         if (!die) rc.writeSharedArray(INDEX_ARCHON_LOC, locToInt(myLoc));
 
         if (buildInDirection(RobotType.SAGE, rc.getLocation().directionTo(
-                new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2))))
+                new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)))) {
+            soldiers ++;
             return;
+        }
 
         //int income = rc.getTeamLeadAmount(rc.getTeam()) - lastTurnMoney;
 
@@ -186,14 +188,17 @@ public class Archon extends Robot {
 
         if (!underAttack && rc.getRoundNum() > 100 && builders == 0) {
             if (buildInDirection(RobotType.BUILDER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)).opposite())) {
-                writeMisc(BIT_LAB, 1);
+                writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
                 builders++;
             }
         }
 
-        if (!underAttack && readMisc(BIT_LAB) == 1) {
+        int numLabs = readMisc(BIT_LAB, NUM_LAB);
+        // build labs once every 100 rounds if we have enough income
+        if (!underAttack && rc.getRoundNum() > 100 * (1 + numLabs)
+                && (6 * numLabs * 40) < income) {
             // save lead for lab before building soldiers
-            if (rc.getTeamLeadAmount(rc.getTeam()) < 180 + 75) {
+            if (rc.getTeamLeadAmount(rc.getTeam()) < 180) {
                 repair();
                 return;
             }

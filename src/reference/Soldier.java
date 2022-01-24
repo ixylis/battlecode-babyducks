@@ -5,6 +5,8 @@ import battlecode.common.*;
 import static battlecode.common.RobotType.*;
 import static java.lang.Math.max;
 
+import java.util.Arrays;
+
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
         super(r);
@@ -18,12 +20,11 @@ public class Soldier extends Robot {
         if (rc.isMovementReady())
             movement();
         else
-            super.updateEnemySoliderLocations();
+            super.updateEnemyLocations();
         if (rc.isActionReady()) attack();
-        super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
 
+        // updateMyLocation();
     }
 
     /*
@@ -63,26 +64,320 @@ public class Soldier extends Robot {
     int[] recentEnemiesRounds = new int[10];
 
     private boolean micro() throws GameActionException {
+        if (!rc.isMovementReady()) {
+            attack();
+            return false;
+        }
         //imagine the advance
         RobotInfo[] friends = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam());
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam().opponent());
-        if (enemies.length == 0)
-            return false;
-        boolean[][] toBeOccupied = new boolean[11][11];
-        MapLocation nearest = null;
+        outer:
         for (RobotInfo r : enemies) {
+            for (int i = 0; i < recentEnemies.length; i++) {
+                if (recentEnemies[i] != null && recentEnemies[i].ID == r.ID) {
+                    recentEnemies[i] = r;
+                    recentEnemiesRounds[i] = rc.getRoundNum();
+                    continue outer;
+                }
+            }
+            int oldest = 0;
+            for (int i = 0; i < recentEnemies.length; i++) {
+                if (recentEnemiesRounds[i] < recentEnemiesRounds[oldest])
+                    oldest = i;
+            }
+            recentEnemies[oldest] = r;
+            recentEnemiesRounds[oldest] = rc.getRoundNum();
+        }
+        boolean existsRecentEnemy = false;
+        for (int i = 0; i < recentEnemies.length; i++) {
+            if (recentEnemiesRounds[i] > rc.getRoundNum() - 5) {
+                existsRecentEnemy = true;
+                //break;
+            } else {
+                recentEnemies[i] = null;
+            }
+        }
+        if (!existsRecentEnemy) return false;
+        int enemyStrength = 0;// + 30;
+        int enemyHP = 0;// + 50;
+        MapLocation nearest = null;
+        for (int i = 0; i < recentEnemies.length; i++) {
             //if(r.type == RobotType.MINER) continue;
+            RobotInfo r = recentEnemies[i];
+            if (recentEnemiesRounds[i] <= rc.getRoundNum() - 5) continue;
+            if (r.type == rc.getType()) {
+                enemyStrength += 3 * 100 / (10 + (rc.canSenseLocation(r.location) ? rc.senseRubble(r.location) : 0));
+                enemyHP += r.health;
+            }
             if (nearest == null || rc.getLocation().distanceSquaredTo(nearest) > rc.getLocation().distanceSquaredTo(r.location))
                 nearest = r.location;
+
         }
-        int nearestInfDistance = max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
+        int nearestInfDistance = Math.max(Math.abs(nearest.x - rc.getLocation().x), Math.abs(nearest.y - rc.getLocation().y));
+        int friendlyStrength = 3 * 100 / (10 + rc.senseRubble(rc.getLocation()));
+        int friendlyHP = rc.getHealth();
+        boolean closerFriend = false;
+        for (RobotInfo r : friends) {
+            int dist = Math.max(Math.abs(nearest.x - r.location.x), Math.abs(nearest.y - r.location.y));
+            if (nearestInfDistance >= dist) {
+                if (nearestInfDistance > dist)
+                    closerFriend = true;
+                friendlyStrength += 3 * 100 / (10 + rc.senseRubble(r.location));
+                friendlyHP += r.health;
+                //rc.setIndicatorDot(r.location, 0, 255, 0);
+            }
+        }
+        int[] nearbyRubble = new int[9];
+        for (int i = 0; i < 9; i++) {
+            MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
+            nearbyRubble[i] = rc.onTheMap(m) ? rc.senseRubble(m) : 0;
+        }
+        boolean[] canShootFrom = new boolean[9];
+        boolean[] canMove = new boolean[9];
+        int[] enemiesInRange = new int[9];
+        int bestDir = -1;
+        //String s = "";
+        for (int i = 0; i < 9; i++) {
+            //if(rc.senseRobotAtLocation(rc.getLocation().add(Direction.allDirections()[i]))!=null) continue;
+            //if(bestDir!=-1 && nearbyRubble[bestDir] < nearbyRubble[i]) continue;
+            if (i < 8 && !rc.canMove(Direction.allDirections()[i]))
+                continue;
+            else
+                canMove[i] = true;
+            for (RobotInfo r : enemies) {
+                if (rc.getLocation().add(Direction.allDirections()[i]).distanceSquaredTo(r.location) <= RobotType.SOLDIER.actionRadiusSquared) {
+                    if (r.type == RobotType.SOLDIER)
+                        enemiesInRange[i]++;
+                    canShootFrom[i] = true;
+                }
+            }
+            if ((bestDir == -1 || (enemiesInRange[i] + 1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestDir] + 10) * (1 + enemiesInRange[bestDir])) && canShootFrom[i]) {
+                bestDir = i;
+            }
+        }
+        if (rc.getID() == 12792) {
+            //rc.setIndicatorString(Arrays.toString(enemiesInRange)+s+rc.canMove(Direction.SOUTH));
+        }
+        //bestDir is the location with the least rubble*(enemies in range) which can shoot at least 1 enemy
+        //if you can shoot from where you are standing, do that first (if it's rubble is low)
+        if (canShootFrom[8] && nearbyRubble[8] == nearbyRubble[bestDir])
+            attack();
+        //if it is not possible to shoot this turn, what is the correct direction to advance in?
+        //just move toward the enemy then
+        if (bestDir == -1) {
+            moveToward(nearest);
+            return true;
+            /*
+            for(int i=0;i<9;i++) {
+                if(Direction.allDirections()[i] == rc.getLocation().directionTo(nearest)) {
+                    bestDir = i;
+                    break;
+                }
+            }*/
+        }
+        Direction d = nearest.directionTo(rc.getLocation());
+        int di = 0;
+        switch (d) {
+            case NORTH:
+                di = 0;
+                break;
+            case NORTHEAST:
+                di = 1;
+                break;
+            case EAST:
+                di = 2;
+                break;
+            case SOUTHEAST:
+                di = 3;
+                break;
+            case SOUTH:
+                di = 4;
+                break;
+            case SOUTHWEST:
+                di = 5;
+                break;
+            case WEST:
+                di = 6;
+                break;
+            case NORTHWEST:
+                di = 7;
+                break;
+            case CENTER:
+                di = 8;
+                break;
+        }
+        int retreat1 = rc.canMove(d) && enemiesInRange[di] == 0 ? rc.senseRubble(rc.getLocation().add(d)) : 1000;
+        d = d.rotateLeft();
+        switch (d) {
+            case NORTH:
+                di = 0;
+                break;
+            case NORTHEAST:
+                di = 1;
+                break;
+            case EAST:
+                di = 2;
+                break;
+            case SOUTHEAST:
+                di = 3;
+                break;
+            case SOUTH:
+                di = 4;
+                break;
+            case SOUTHWEST:
+                di = 5;
+                break;
+            case WEST:
+                di = 6;
+                break;
+            case NORTHWEST:
+                di = 7;
+                break;
+            case CENTER:
+                di = 8;
+                break;
+        }
+        int retreat2 = rc.canMove(d) && enemiesInRange[di] == 0 ? rc.senseRubble(rc.getLocation().add(d)) : 1000;
+        d = d.rotateRight().rotateRight();
+        switch (d) {
+            case NORTH:
+                di = 0;
+                break;
+            case NORTHEAST:
+                di = 1;
+                break;
+            case EAST:
+                di = 2;
+                break;
+            case SOUTHEAST:
+                di = 3;
+                break;
+            case SOUTH:
+                di = 4;
+                break;
+            case SOUTHWEST:
+                di = 5;
+                break;
+            case WEST:
+                di = 6;
+                break;
+            case NORTHWEST:
+                di = 7;
+                break;
+            case CENTER:
+                di = 8;
+                break;
+        }
+        int retreat3 = rc.canMove(d) && enemiesInRange[di] == 0 ? rc.senseRubble(rc.getLocation().add(d)) : 1000;
+        boolean shouldRetreat = false;
+        //should we step foward and shoot?
+        //if your strength beats the enemy by a factor of the rubble difference
+        //if you don't advance, then consider retreating, but only if the rubble is sufficiently in your favor
+
+        boolean shouldAdvance = false;
+        int b = 999999;
+        int bestMoveI = -1;
+        //first determine if you should retreat
+        //if you've already shot this turn, then simply move to the least rubble*enemies spot you can find.
+        if (!rc.isActionReady() && enemiesInRange[8] > 0) {
+            //half assed retreat
+            int best = (enemiesInRange[8] + 1) * (nearbyRubble[8] + 10);
+            int bestI = 8;
+            for (int i = 0; i < 8; i++) {
+                int x = (enemiesInRange[i] + 1) * (nearbyRubble[i] + 10);
+                if (x < best && canMove[i]) {
+                    best = x;
+                    bestI = i;
+                }
+            }
+            if (bestI < 8)
+                rc.move(Direction.allDirections()[bestI]);
+            bestMoveI = bestI * 10;
+        } else {
+            if (enemyStrength * enemyHP * (10 + nearbyRubble[bestDir]) * (10 + nearbyRubble[bestDir]) * 3 / 2 < friendlyStrength * friendlyHP * (10 + nearbyRubble[8]) * (10 + nearbyRubble[8])) {
+                shouldRetreat = false;
+                shouldAdvance = true;
+            } else if (closerFriend) {
+                shouldRetreat = false;
+                shouldAdvance = false;
+            } else
+                shouldRetreat = true;
+            d = d.rotateLeft();
+            Direction bestRetreatDir = d;
+            if (shouldRetreat) {
+                b = retreat1;
+                if (retreat2 < b) {
+                    b = retreat2;
+                    bestRetreatDir = d.rotateLeft();
+                }
+                if (retreat3 < b) {
+                    b = retreat3;
+                    bestRetreatDir = d.rotateRight();
+                }
+                if (b <= nearbyRubble[8] || (b + 10) * (b + 10) * friendlyStrength * friendlyHP < (nearbyRubble[8] + 10) * (nearbyRubble[8] + 10) * enemyStrength * enemyHP) {
+                    if (rc.isActionReady())
+                        attack();
+                    if (rc.canMove(bestRetreatDir))
+                        rc.move(bestRetreatDir);
+                } else if ((nearbyRubble[8] + 10) * 16 / 10 >= (nearbyRubble[bestDir] + 10) && rc.isActionReady())
+                    //if you haven't shot this turn, and retreating wasn't good enough to warrant, then walk forward and shoot anyway.
+                    //you get about 1.6x more shots off by walking forward to shoot rather than sitting and waiting for the enmey to come.
+                    shouldAdvance = true;
+            }
+            if (shouldAdvance && rc.isMovementReady()) {
+                rc.move(Direction.allDirections()[bestDir]);
+                if (rc.isActionReady())
+                    attack();
+            }
+            if (!shouldAdvance && rc.isMovementReady()) {
+                //rc.setIndicatorDot(rc.getLocation(), 255, 255, 255);
+                //if you should neither advance nor retreat, move to the lowest rubble*enemies
+                int best = (enemiesInRange[8] + 1) * (nearbyRubble[8] + 10);
+                int bestI = 8;
+                for (int i = 0; i < 8; i++) {
+                    int x = (enemiesInRange[i] + 1) * (nearbyRubble[i] + 10);
+                    if (x < best && canMove[i]) {
+                        best = x;
+                        bestI = i;
+                    }
+                }
+                if (bestI < 8)
+                    rc.move(Direction.allDirections()[bestI]);
+                bestMoveI = bestI;
+
+            }
+        }
+        /*
+        if(!closerFriend && (enemyStrength*enemyHP * (nearbyRubble[bestDir]+10) *(nearbyRubble[bestDir]+10) > 2 * friendlyStrength*friendlyHP * (nearbyRubble[8]+10) * (nearbyRubble[8]+10)
+                || (!rc.isActionReady() && 2*enemyStrength*enemyHP > friendlyStrength*friendlyHP))) {
+            int b = retreat1;
+            retreatAttempted = true;
+            Direction bestRetreatDir = d;
+            if(retreat2 < b) {b = retreat2; bestRetreatDir = d.rotateLeft();}
+            if(retreat3 < b) {b = retreat3; bestRetreatDir = d.rotateRight();}
+            if((b+10) * (b+10) * friendlyStrength*friendlyHP < (nearbyRubble[8]+10) * (nearbyRubble[8]+10) * enemyStrength*enemyHP)
+                rc.move(bestRetreatDir);
+        }
+        if((!retreatAttempted || (nearbyRubble[bestDir] < nearbyRubble[8])) && rc.canMove(Direction.allDirections()[bestDir]))
+            rc.move(Direction.allDirections()[bestDir]);
+        if(rc.isActionReady())
+            attack();
+            */
+        rc.setIndicatorString("eHP " + enemyHP + " eS " + enemyStrength + " fHP " + friendlyHP + " fS " + friendlyStrength +
+                " " + Direction.allDirections()[bestDir] + " " + shouldAdvance + " " + bestMoveI + shouldRetreat);
+        // rc.setIndicatorDot(nearest, 255, 0, 0);
+        return true;
+    }
+
+    private void oldMicro() {
 
         /*
          * everyone moves forward one square toward the nearest enemy to my location.
          * for this purpose, we go one robot at a time, find the lowest rubble spot it can move to in that direction +/- 45 deg
          * declare that spot 'occupied by friendly forces'
          */
-        Direction toMove = null;
+        /*
+        Direction toMove=null;
         int myAdvanceStrength = 0;
         for (RobotInfo r : friends) {
             if (r.type != SOLDIER)
@@ -208,6 +503,7 @@ public class Soldier extends Robot {
         }
         rc.setIndicatorString("adv " + myAdvanceStrength + " oppAdv " + enemyAdvanceStrength + " hold " + myHoldStrength + " oppHold " + enemyHoldStrength);
         return true;
+        */
     }
 
     private void bytecodeTest() {
@@ -228,12 +524,24 @@ public class Soldier extends Robot {
         rc.setIndicatorString("[][] = " + (b1 - b) + " normal " + (b2 - b1) + " " + (b3 - b2) + " read " + (b4 - b3) + " " + c77);
     }
 
-    boolean healing = false;
+    boolean healing = false, waiting = false;
     boolean dying = false, there = false;
+    int lastHP = 50;
 
     private void movement() throws GameActionException {
-        if(dying) {
-            if(!there) {
+        if (rc.getHealth() > lastHP) {
+            healing = true;
+            dying = false;
+            if (waiting) {
+                waiting = false;
+                writeMisc(BIT_HEALING, 0);
+            }
+        }
+
+        lastHP = rc.getHealth();
+
+        if (dying) {
+            if (!there) {
                 MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
                 moveToward(home);
 
@@ -243,7 +551,7 @@ public class Soldier extends Robot {
                 }
             }
 
-            if(there) {
+            if (there) {
                 MapLocation[] nonlead =
                         rc.getAllLocationsWithinRadiusSquared(myLoc,
                                 SOLDIER.visionRadiusSquared);
@@ -251,24 +559,24 @@ public class Soldier extends Robot {
                 int best = movementTarget == null ? 10000 :
                         myLoc.distanceSquaredTo(movementTarget);
 
-                for(MapLocation loc : nonlead) {
-                    if(rc.senseLead(loc) > 0) continue;
+                for (MapLocation loc : nonlead) {
+                    if (rc.senseLead(loc) > 0) continue;
 
                     int dist = myLoc.distanceSquaredTo(loc);
 
-                    if(dist < best) {
+                    if (dist < best) {
                         movementTarget = loc;
                         best = dist;
                     }
                 }
 
-                if(movementTarget != null) {
+                if (movementTarget != null) {
                     moveToward(movementTarget);
                 } else {
                     rc.disintegrate();
                 }
 
-                if(rc.senseLead(myLoc) == 0) {
+                if (rc.senseLead(myLoc) == 0) {
                     rc.disintegrate();
                 }
             }
@@ -276,23 +584,21 @@ public class Soldier extends Robot {
             return;
         }
 
-        if(rc.getHealth() < 10) {
-            if(!healing) {
-                int healees = rc.readSharedArray(INDEX_HEALING);
-                if (healees < MAX_HEALS) {
-                    healing = true;
-                    rc.writeSharedArray(INDEX_HEALING, healees + 1);
-                } else {
-                    dying = true;
-                }
+        if (rc.getHealth() < 10 && !healing) {
+            int r = readMisc(BIT_HEALING);
+            rc.setIndicatorString(String.valueOf(r));
+            if (r == 0) {
+                healing = true;
+                waiting = true;
+                writeMisc(BIT_HEALING, 1);
+            } else {
+                dying = true;
             }
         }
 
-        if(healing) {
-            if(rc.getHealth() >= 49) {
+        if (healing) {
+            if (rc.getHealth() >= 49) {
                 healing = false;
-                int healees = rc.readSharedArray(INDEX_HEALING);
-                rc.writeSharedArray(INDEX_HEALING, healees - 1);
             } else {
                 MapLocation home = intToLoc(rc.readSharedArray(INDEX_ARCHON_LOC));
                 if (home.distanceSquaredTo(myLoc) >
@@ -302,6 +608,8 @@ public class Soldier extends Robot {
                 return;
             }
         }
+
+        lastHP = rc.getHealth();
 
         if (micro())
             return;

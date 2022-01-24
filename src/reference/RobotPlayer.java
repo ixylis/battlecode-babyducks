@@ -32,6 +32,7 @@ public strictfp class RobotPlayer {
         case ARCHON: new Archon(rc).run();
         case BUILDER: new Builder(rc).run();
         case WATCHTOWER: new Watchtower(rc).run();
+        case LABORATORY: new Laboratory(rc).run();
         default:
             break;
         }

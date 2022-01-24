@@ -5,6 +5,8 @@ import battlecode.common.*;
 import static battlecode.common.RobotType.*;
 import static java.lang.Math.max;
 
+import java.util.Arrays;
+
 public class Soldier extends Robot {
     Soldier(RobotController r) throws GameActionException {
         super(r);

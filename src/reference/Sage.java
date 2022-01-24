@@ -21,11 +21,12 @@ public class Sage extends Robot {
         if (rc.isActionReady())
             attack();
         else
-            super.updateEnemySoliderLocations();
+            super.updateEnemyLocations();
         if (rc.isMovementReady()) movement();
         super.updateEnemyHQs();
         //rc.setIndicatorDot(Robot.intToLoc(rc.readSharedArray(INDEX_ENEMY_HQ+rc.getRoundNum()%4)), 190, 0, 190);
-        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_LOCATION + rc.getRoundNum() % NUM_ENEMY_SOLDIER_CHUNKS)), 1, 255, 1);
+        rc.setIndicatorDot(intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION +
+                rc.getRoundNum() % NUM_ENEMY_UNIT_CHUNKS)), 1, 255, 1);
 
     }
 
@@ -192,6 +193,7 @@ public class Sage extends Robot {
             int minRubble = rc.senseRubble(rc.getLocation());
             Direction minRubbleDir = Direction.CENTER;
             for (Direction d : directions) {
+                if(!rc.onTheMap(myLoc.add(d))) continue;
                 int rubble = rc.senseRubble(rc.getLocation().add(d));
                 if (rubble < minRubble && rc.canMove(d)) {
                     minRubble = rubble;
