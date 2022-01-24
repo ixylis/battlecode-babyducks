@@ -175,7 +175,7 @@ public class Archon extends Robot {
             }
         }
 
-        if (rc.readSharedArray(INDEX_LAB) == 1) {
+        if (!underAttack && rc.readSharedArray(INDEX_LAB) == 1) {
             // save lead for lab before building soldiers
             if (rc.getTeamLeadAmount(rc.getTeam()) < 180 + 75) {
                 repair();
