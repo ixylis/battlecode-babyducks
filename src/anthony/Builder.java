@@ -25,6 +25,7 @@ public class Builder extends Robot {
           rc.setIndicatorString("Repairing building");
           nearbyBuilding = true;
           rc.repair(robot.location);
+          return;
         }
       }
       // go to corner of board and build a lab
@@ -33,14 +34,39 @@ public class Builder extends Robot {
         if (me.distanceSquaredTo(corner) < me.distanceSquaredTo(nearestCorner))
           nearestCorner = corner;
       }
-      if (me.distanceSquaredTo(nearestCorner) <= 2) {
-        Direction dir = me.directionTo(nearestCorner);
-        if (rc.canBuildRobot(RobotType.LABORATORY, dir)) {
-          rc.buildRobot(RobotType.LABORATORY, dir);
+      Direction dir = me.directionTo(nearestCorner);
+      if (me.distanceSquaredTo(nearestCorner) <= 2 || 
+          (rc.senseNearbyRobots().length == 0 
+           && (rc.canSenseLocation(me.add(dir)) && rc.senseRubble(me.add(dir)) == 0
+             || (rc.canSenseLocation(me.add(dir.rotateLeft())) && rc.senseRubble(me.add(dir.rotateLeft())) == 0)
+             || (rc.canSenseLocation(me.add(dir.rotateRight())) && rc.senseRubble(me.add(dir.rotateRight())) == 0)))) {
+        Direction bestDir = dir;
+        Direction newDir;
+        int rubble = 100;
+        int newRubble;
+        if (rc.canSenseLocation(me.add(dir)) && rc.canBuildRobot(RobotType.LABORATORY, dir)) rubble = rc.senseRubble(me.add(dir));
+        newDir = dir.rotateLeft();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+        newDir = dir.rotateRight();
+        if (rc.canSenseLocation(me.add(newDir)) && rc.canBuildRobot(RobotType.LABORATORY, newDir)) {
+          newRubble = rc.senseRubble(me.add(newDir));
+          if (newRubble < rubble) {
+            bestDir = newDir;
+            rubble = newRubble;
+          }
+        }
+
+        if (rc.canBuildRobot(RobotType.LABORATORY, bestDir)) {
+          rc.buildRobot(RobotType.LABORATORY, bestDir);
           rc.writeSharedArray(INDEX_LAB, 0);
         }
       } else {
-        Direction dir = me.directionTo(nearestCorner);
         dir = bestMove(dir);
         if (rc.canMove(dir)) rc.move(dir);
       }
