@@ -50,7 +50,7 @@ public abstract class Robot {
             INDEX_ENEMY_ETC_LOCATION + NUM_ENEMY_ETC_CHUNKS;
     /*
     Locations of our units
-    Each chunk is 16 = 2 + 3 + 1 + 7 bits abrrsssqflllllllll
+    Each chunk is 16 = 1 + 1 + 2 + 3 + 1 + 1 + 7 bits abrrsssqflllllllll
     lllllllll = location = 10x + y, counting 6x6 blocks as regions
     f = frontier (0 if not fighting, 1 if fighting)
     q = who is stronger (0 if we are stronger, 1 if they are)
@@ -94,6 +94,10 @@ public abstract class Robot {
     MapLocation[] corners;
 
     MapLocation hqLoc = null; // stores (original) location of HQ that spawned this
+    int[] savedEnemyUnitLocs = new int[NUM_ENEMY_UNIT_CHUNKS];
+    int[] savedEnemyEtcLocs = new int[NUM_ENEMY_ETC_CHUNKS * 2];
+    int[] savedMyLocs = new int[NUM_MY_UNIT_CHUNKS];
+    int[] savedLead = new int[NUM_LEAD_DEPOSITS];
 
     abstract static class Weightage {
         abstract double weight(Direction d);
@@ -176,6 +180,7 @@ public abstract class Robot {
             try {
                 myLoc = rc.getLocation();
                 turn();
+                if(rc.getRoundNum() % 7 == 3) saveInfo();
                 updateInfo();
 
                 if (!rc.getLocation().equals(recentLocations[recentLocationsIndex])) {
@@ -207,6 +212,51 @@ public abstract class Robot {
         }
     }
 
+    double getHeat(MapLocation loc) {
+        double myHeat = 0, enemyHeat = 0;
+        for(int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            enemyHeat += chunkToPower(savedEnemyUnitLocs[i]) /
+                    (1 + loc.distanceSquaredTo(chunkToloc(
+                            savedEnemyUnitLocs[i])));
+        }
+        myHeat = -enemyHeat;
+        for(int i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
+            if(((savedMyLocs[i] >> 7) & 1) == 1)
+            myHeat += chunkToPowerDiff(savedMyLocs[i]) /
+                    (1 + loc.distanceSquaredTo(chunkToloc(
+                            savedMyLocs[i])));
+        }
+        double ratio = max(myHeat, 0.01) / max(enemyHeat, 0.01);
+        return log(ratio)/log(2);
+    }
+
+    double chunkToPowerDiff(int chunk) {
+        int q = 1 - (((chunk >> 8) & 1) * 2);
+        int s = (chunk >> 9) & 7;
+    /*
+        sss = 0: [0, 0.5)
+        sss = 1: [0.5, 1.2)
+        sss = 2: [1.2, 2.0)
+        sss = 3: [2.0, 3.0)
+        sss = 4: [3.0, 4.5)
+        sss = 5: [4.5, 7)
+        sss = 6: [7, 10)
+        sss = 7: [10, inf)
+        */
+        switch(s) {
+            case 0: return q * 0.25;
+            case 1: return q * 0.85;
+            case 2: return q * 1.6;
+            case 3: return q * 2.5;
+            case 4: return q * 3.75;
+            case 5: return q * 5.75;
+            case 6: return q * 8.5;
+            case 7: return q * 15;
+        }
+
+        return 0;
+    }
+
     int readMisc(int bit) throws GameActionException {
         return (rc.readSharedArray(INDEX_MISC) >> bit & 1);
     }
@@ -225,6 +275,26 @@ public abstract class Robot {
         }
         updateEnemyLocations();
         updateLead();
+    }
+
+    void saveInfo() throws GameActionException {
+        for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
+            savedEnemyUnitLocs[i] = rc.readSharedArray(i + INDEX_ENEMY_UNIT_LOCATION);
+        }
+
+        for (int i = 0; i < NUM_ENEMY_ETC_CHUNKS; i++) {
+            int x = rc.readSharedArray(i + INDEX_ENEMY_ETC_LOCATION);
+            savedEnemyEtcLocs[2*i] = x & 0xFF;
+            savedEnemyEtcLocs[2*i+1] = (x >> 8) & 0xFF;
+        }
+
+        for (int i = 0; i < NUM_MY_UNIT_CHUNKS; i++) {
+            savedMyLocs[i] = rc.readSharedArray(i + INDEX_MY_UNIT_LOCATIONS);
+        }
+
+        for (int i = 0; i < NUM_LEAD_DEPOSITS; i++) {
+            savedLead[i] = getDeposit(i);
+        }
     }
 
     void updateLead() throws GameActionException {
@@ -255,6 +325,7 @@ public abstract class Robot {
             if (j < NUM_LEAD_DEPOSIT_INTS - 1)
                 dump |= leadInts[j + 1] << 16;
             leadChunks[i] = (dump >> k) & ((1 << NUM_LEAD_DEPOSIT_BITS) - 1);
+            if(leadChunks[i] == 0x3FF) return;
             if ((leadChunks[i] & 0x7F) == l) return;
             if ((leadChunks[i] >> 7) < low) {
                 low = leadChunks[i] >> 7;
@@ -290,8 +361,20 @@ public abstract class Robot {
         //rc.setIndicatorDot(chunkToloc(l), 0, 30 * lead, 0);
     }
 
+    int getDeposit(int i) throws GameActionException {
+        int j = (i * NUM_LEAD_DEPOSIT_INTS) / NUM_LEAD_DEPOSITS;
+        int k = (i * NUM_LEAD_DEPOSIT_INTS) - (j * NUM_LEAD_DEPOSITS);
+        int dump = savedLead[j];
+
+        if (j < NUM_LEAD_DEPOSIT_INTS - 1)
+            dump |= savedLead[j+1] << 16;
+
+        return (dump >> k) & ((1 << NUM_LEAD_DEPOSIT_BITS) - 1);
+    }
+
     MapLocation chunkToloc(int l) {
-        return new MapLocation((l / 10) * 6 + 3, (l % 10) * 6 + 3);
+        int z = l & 0x7F;
+        return new MapLocation((z / 10) * 6 + 3, (z % 10) * 6 + 3);
     }
 
     public abstract void turn() throws GameActionException;
@@ -705,14 +788,40 @@ public abstract class Robot {
                 (sqrt(SOLDIER.getMaxHealth(1)) + 1);
     }
 
-    MapLocation getNearestEnemyChunk() throws GameActionException {
+    MapLocation getNearestEnemySoldierChunk() throws GameActionException {
         MapLocation nearest = null;
+
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             int x1 = rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i);
             if (x1 == 0xFFFF) continue;
             MapLocation x = intToChunk(x1);
             if (nearest == null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
                 nearest = x;
+            }
+        }
+
+        return nearest;
+    }
+    MapLocation getNearestEnemyChunk() throws GameActionException {
+        MapLocation nearest = getNearestEnemySoldierChunk();
+
+        for(int i = 0; i < NUM_ENEMY_ETC_CHUNKS; i++) {
+            int z = rc.readSharedArray(INDEX_ENEMY_ETC_LOCATION + i);
+            int x1 = z & 0xFF;
+            int x2 = (z >> 8) & 0xFF;
+            MapLocation l1 = chunkToloc(x1);
+            MapLocation l2 = chunkToloc(x2);
+            if(!(x1 == 0xFF)) {
+                if (nearest == null || rc.getLocation().distanceSquaredTo(l1) <
+                        rc.getLocation().distanceSquaredTo(nearest)) {
+                    nearest = l1;
+                }
+            }
+            if(!(x2 == 0xFF)) {
+                if (nearest == null || rc.getLocation().distanceSquaredTo(l2) <
+                        rc.getLocation().distanceSquaredTo(nearest)) {
+                    nearest = l2;
+                }
             }
         }
         return nearest;

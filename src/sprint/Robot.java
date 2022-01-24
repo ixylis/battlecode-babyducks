@@ -75,7 +75,7 @@ public abstract class Robot {
      * when anyone sees an enemy check if it would be a new entry. if so add it with the round number.
      */
     
-    public static final boolean DEBUG=false;
+    public static final boolean DEBUG=true;
     public final Random rng;
     RobotController rc;
     Robot(RobotController r) throws GameActionException {

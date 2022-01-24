@@ -55,6 +55,10 @@ public class Archon extends Robot {
             rc.writeSharedArray(i + INDEX_MY_UNIT_LOCATIONS, 0xFFFF);
         }
 
+        for(i=0;i<NUM_LEAD_DEPOSIT_INTS;i++) {
+            rc.writeSharedArray(i + INDEX_LEAD_DEPOSITS, 0xFFFF);
+        }
+
         totalHQ = rc.getArchonCount();
 
         anomalies = rc.getAnomalySchedule();
@@ -198,7 +202,7 @@ public class Archon extends Robot {
         if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
                 (max_miners / 1.5 > liveMiners ||
                         (income > liveMiners * 40 && liveMiners < max_miners) ||
-                        (income > liveMiners * 80) ||
+          //              (income > liveMiners * 80) ||
                         rc.getRoundNum() < initTurns ||
                         soldiers * minerToSoldier > miners)) {
             if (buildMiner())
@@ -213,7 +217,7 @@ public class Archon extends Robot {
             removeFriendlyUnitLocations();
             removeOldEnemyUnitLocations();
         }
-        if (rc.getRoundNum() % 50 == 0) {
+        if (rc.getRoundNum() % 100 == 0) {
             writeMisc(BIT_HEALING, 0);
         }
 
