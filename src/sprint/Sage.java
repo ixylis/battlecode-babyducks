@@ -109,12 +109,13 @@ public class Sage extends Robot {
                 bestRetreat = i;
             }
             if((bestAdvance==-1 || (dmg[i]+1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestAdvance] + 10) * (1+dmg[bestAdvance]))) {
-                bestRetreat = i;
+                bestAdvance = i;
             }
         }
         //if we aren't shooting any time soon, retreat
         if(rc.getActionCooldownTurns() > 50) {
-            rc.move(Direction.allDirections()[bestRetreat]);
+            if(bestRetreat!=8) //don't bother if the optimal move is to stay where you are
+                rc.move(Direction.allDirections()[bestRetreat]);
         } else {
             //otherwise, advance to shoot
             if(dmg[bestAdvance] < 45) {
@@ -126,7 +127,8 @@ public class Sage extends Robot {
                 }
                 if(bestAdvance==-1) return false;
             }
-            rc.move(Direction.allDirections()[bestAdvance]);
+            if(bestAdvance != 8)
+                rc.move(Direction.allDirections()[bestAdvance]);
             attack();
         }
         return true;
