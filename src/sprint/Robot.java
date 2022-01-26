@@ -197,7 +197,7 @@ public abstract class Robot {
                 for (int i = recentLocationsIndex + 9; i > recentLocationsIndex; i--) {
                     if (recentLocations[i % 10] != null) {
                         MapLocation next = recentLocations[i % 10];
-                        rc.setIndicatorLine(last, next, 255, 0, 0);
+                        //rc.setIndicatorLine(last, next, 255, 0, 0);
                         last = next;
                     }
                 }
