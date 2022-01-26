@@ -165,9 +165,11 @@ public class Archon extends Robot {
             }
         }
 
+        int numLabs = readMisc(BIT_LAB, NUM_LAB);
+        // build labs once every 100 rounds if we have enough income
         if (DEBUG) {
             MapLocation enemyLoc = intToChunk(rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + rc.getRoundNum() % Robot.NUM_ENEMY_UNIT_CHUNKS));
-            rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " enemy=" + enemyLoc);
+            rc.setIndicatorString(myHQIndex + " income=" + income + " miners=" + liveMiners + " numLab=" + numLabs);
         }
         boolean myTurn = true;
         // if we're under attack, override this and always build
@@ -182,13 +184,11 @@ public class Archon extends Robot {
 
         if (!underAttack && rc.getRoundNum() > 100 && builders == 0) {
             if (buildInDirection(RobotType.BUILDER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)).opposite())) {
-                writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
+                //writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
                 builders++;
             }
         }
 
-        int numLabs = readMisc(BIT_LAB, NUM_LAB);
-        // build labs once every 100 rounds if we have enough income
 
         if (!underAttack && rc.getTeamLeadAmount(rc.getTeam()) < 150 &&
                 (max_miners / 1.5 > liveMiners ||
