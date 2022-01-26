@@ -88,8 +88,10 @@ public abstract class Robot {
     public static final int BIT_RELOCATE = 0;
     public static final int BIT_SYMMETRY = 1;
     public static final int BIT_HEALING = 2;
-    public static final int BIT_LAB = 3;
-    public static final int NUM_LAB = 3;
+    public static final int BIT_LAB = 4;
+    public static final int NUM_LAB = 4;
+    public static final int BIT_BUILDER = BIT_LAB + NUM_LAB;
+    public static final int NUM_BUILDER = 4;
 
     MapLocation myLoc;
     MapLocation[] corners;
@@ -241,6 +243,7 @@ public abstract class Robot {
     }
 
     int chunkToLead(int chunk) {
+        if(chunk == 0x3FF) return 0;
         int e = chunk >> 7;
         return (int) (pow(3, e) / sqrt(3));
     }
@@ -294,6 +297,7 @@ public abstract class Robot {
     }
 
     void writeMisc(int bit, int out, int num) throws GameActionException {
+        out = min(out, (1<<num) - 1);
         rc.writeSharedArray(INDEX_MISC,
                 (rc.readSharedArray(INDEX_MISC)
                         & (0xFFFF - (((1 << num) - 1) << bit))) | (out << bit));
@@ -809,7 +813,7 @@ public abstract class Robot {
                 v2 = 0xFF00;
             }
             if (v1 != x1 || v2 != x2) {
-                rc.writeSharedArray(i, v1 | v2);
+                rc.writeSharedArray(i, 0xFFFF);
             }
         }
     }
@@ -1419,7 +1423,7 @@ public abstract class Robot {
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS + 3, 0);
     }
 
-    double computeStrength(RobotInfo[] robots) throws GameActionException {
+    double computeTotalStrength(RobotInfo[] robots) throws GameActionException {
         double strength = 0;
 
         for (RobotInfo r : robots) {
@@ -1492,7 +1496,7 @@ public abstract class Robot {
         double rub = rubble(myLoc);
         int a = rubble(myLoc.translate(-(int) (dx * rad), -(int) (dy * rad))) > rub ? 1 : 0;
         int b = rubble(myLoc.translate((int) (dx * rad), (int) (dy * rad))) > rub ? 1 : 0;
-        double st = (int) ((computeStrength(enemies) - computeStrength(friends))
+        double st = (int) ((computeTotalStrength(enemies) - computeTotalStrength(friends))
                 * (10 + rub));
         int s;
         if (st < 0.5) {
