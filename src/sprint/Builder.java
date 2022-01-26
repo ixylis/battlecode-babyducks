@@ -2,13 +2,14 @@ package sprint;
 
 import battlecode.common.*;
 import static battlecode.common.RobotType.*;
+import java.util.ArrayList;
 
 public class Builder extends Robot {
     Builder(RobotController r) throws GameActionException {
         super(r);
     }
     private MapLocation hqLoc = null;
-    private MapLocation labLoc = null;
+    private ArrayList<MapLocation> labLocs = new ArrayList<MapLocation>(); // store all labs we've built
     private boolean builtLab = false;
     public void turn() throws GameActionException {
         writeMisc(BIT_BUILDER, readMisc(BIT_BUILDER, NUM_BUILDER) + 1, NUM_BUILDER);
@@ -19,7 +20,6 @@ public class Builder extends Robot {
             for (RobotInfo robot : robots) {
                 if (robot.type == RobotType.ARCHON) {
                     hqLoc = robot.location;
-                    labLoc = hqLoc; // initialize to this until we actually build a lab
                 }
             }
         }
@@ -50,22 +50,51 @@ public class Builder extends Robot {
             }
             return;
         }
+        // update labLocs with labs seen on board (from other builders/labs moving around)
+        friends = rc.senseNearbyRobots(RobotType.BUILDER.visionRadiusSquared, rc.getTeam());
+        for (RobotInfo robot : friends) {
+            if (robot.type == RobotType.LABORATORY && !labLocs.contains(robot.location))
+                labLocs.add(robot.location);
+        }
         // go to corner of board and build a lab
-        MapLocation nearestCorner = corners[0];
+        MapLocation nearestCorner = null;
+        int distanceToNearestCorner = Integer.MAX_VALUE;
         for (MapLocation corner : corners) {
-            if ((me.distanceSquaredTo(corner) < me.distanceSquaredTo(nearestCorner)
-                    || hqLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared
-                    || labLoc.distanceSquaredTo(nearestCorner) < RobotType.LABORATORY.visionRadiusSquared)
-                    && (hqLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared
-                    && labLoc.distanceSquaredTo(corner) > RobotType.LABORATORY.visionRadiusSquared))
+            boolean replaceCorner = true;
+            replaceCorner &= (me.distanceSquaredTo(corner) < distanceToNearestCorner);
+            replaceCorner &= (corner.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared);
+            for (MapLocation labLoc : labLocs)
+                replaceCorner &= (corner.distanceSquaredTo(labLoc) > RobotType.LABORATORY.visionRadiusSquared);
+            if (replaceCorner) {
                 nearestCorner = corner;
+                distanceToNearestCorner = me.distanceSquaredTo(corner);
+            }
+        }
+        // build on zero-rubble squares far from other labs/HQ or, failing that, squares in the corner
+        Direction mediocreDir = null;
+        for (Direction dir : Direction.allDirections()) {
+            MapLocation newLoc = me.add(dir);
+            boolean goodSquare = true;
+            goodSquare &= (newLoc.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared);
+            for (MapLocation labLoc : labLocs)
+                goodSquare &= (newLoc.distanceSquaredTo(labLoc) > RobotType.LABORATORY.visionRadiusSquared);
+            if (goodSquare && rc.canSenseLocation(newLoc) && rc.senseRubble(newLoc) < 5) mediocreDir = dir;
+            goodSquare &= (rc.canSenseLocation(newLoc)) && (rc.senseRubble(newLoc) == 0);
+            if (goodSquare && rc.canBuildRobot(RobotType.LABORATORY, dir)) {
+                builtLab = true;
+                labLocs.add(me.add(dir));
+                writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
+                rc.buildRobot(RobotType.LABORATORY, dir);
+            }
+        }
+        if (mediocreDir != null && rc.canBuildRobot(RobotType.LABORATORY, mediocreDir)) {
+            builtLab = true;
+            labLocs.add(me.add(mediocreDir));
+            writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
+            rc.buildRobot(RobotType.LABORATORY, mediocreDir);
         }
         Direction dir = me.directionTo(nearestCorner);
-        if (me.distanceSquaredTo(nearestCorner) <= 2 ||
-                (!builtLab && me.distanceSquaredTo(hqLoc) > 9
-                        && (rc.canSenseLocation(me.add(dir)) && rc.senseRubble(me.add(dir)) == 0
-                        || (rc.canSenseLocation(me.add(dir.rotateLeft())) && rc.senseRubble(me.add(dir.rotateLeft())) == 0)
-                        || (rc.canSenseLocation(me.add(dir.rotateRight())) && rc.senseRubble(me.add(dir.rotateRight())) == 0)))) {
+        if (me.distanceSquaredTo(nearestCorner) <= 2) {
             Direction bestDir = dir;
             Direction newDir;
             int rubble = 100;
@@ -107,7 +136,7 @@ public class Builder extends Robot {
 
             if (rc.canBuildRobot(RobotType.LABORATORY, bestDir)) {
                 builtLab = true;
-                labLoc = me.add(bestDir);
+                labLocs.add(me.add(bestDir));
                 rc.buildRobot(RobotType.LABORATORY, bestDir);
                 writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
             }
