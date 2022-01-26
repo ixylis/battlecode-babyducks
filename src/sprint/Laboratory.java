@@ -30,7 +30,8 @@ public class Laboratory extends Robot {
         if (rc.getMode() == RobotMode.PROTOTYPE) return;
 
         // convert lead to gold if the conversion rate is better than 6:1
-        if (rc.getTransmutationRate() <= 6 && income > (numLabs + 1) * 8 &&
+        if (rc.getTransmutationRate() <= 6 &&
+        rc.getTeamLeadAmount(rc.getTeam()) > 10 * numLabs &&
             numLabs < (rc.getMapWidth() * rc.getMapHeight()) / 200) {
             if (rc.canTransmute())
                 rc.transmute();

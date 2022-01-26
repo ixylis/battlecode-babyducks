@@ -88,8 +88,10 @@ public abstract class Robot {
     public static final int BIT_RELOCATE = 0;
     public static final int BIT_SYMMETRY = 1;
     public static final int BIT_HEALING = 2;
-    public static final int BIT_LAB = 3;
-    public static final int NUM_LAB = 3;
+    public static final int BIT_LAB = 4;
+    public static final int NUM_LAB = 4;
+    public static final int BIT_BUILDER = BIT_LAB + NUM_LAB;
+    public static final int NUM_BUILDER = 4;
 
     MapLocation myLoc;
     MapLocation[] corners;
@@ -161,9 +163,8 @@ public abstract class Robot {
         corners[3] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() - 1);
 //        corners[4] = new MapLocation(rc.getMapWidth() / 2, 0);
 //        corners[5] = new MapLocation(0, rc.getMapHeight() / 2);
-//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-//        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-//        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
+//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() - 1);
+//        corners[7] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
         myLoc = rc.getLocation();
     }
 
@@ -197,7 +198,7 @@ public abstract class Robot {
                 for (int i = recentLocationsIndex + 9; i > recentLocationsIndex; i--) {
                     if (recentLocations[i % 10] != null) {
                         MapLocation next = recentLocations[i % 10];
-                        rc.setIndicatorLine(last, next, 255, 0, 0);
+                        //rc.setIndicatorLine(last, next, 255, 0, 0);
                         last = next;
                     }
                 }
@@ -241,6 +242,7 @@ public abstract class Robot {
     }
 
     int chunkToLead(int chunk) {
+        if(chunk == 0x3FF) return 0;
         int e = chunk >> 7;
         return (int) (pow(3, e) / sqrt(3));
     }
@@ -294,6 +296,7 @@ public abstract class Robot {
     }
 
     void writeMisc(int bit, int out, int num) throws GameActionException {
+        out = min(out, (1<<num) - 1);
         rc.writeSharedArray(INDEX_MISC,
                 (rc.readSharedArray(INDEX_MISC)
                         & (0xFFFF - (((1 << num) - 1) << bit))) | (out << bit));
@@ -809,7 +812,7 @@ public abstract class Robot {
                 v2 = 0xFF00;
             }
             if (v1 != x1 || v2 != x2) {
-                rc.writeSharedArray(i, v1 | v2);
+                rc.writeSharedArray(i, 0xFFFF);
             }
         }
     }
@@ -1020,13 +1023,18 @@ public abstract class Robot {
     }
 
     MapLocation getNearestEnemySoldierChunk() throws GameActionException {
+        return getNearestEnemySoldierChunk(myLoc);
+    }
+
+    MapLocation getNearestEnemySoldierChunk(MapLocation loc) throws GameActionException {
         MapLocation nearest = null;
 
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             int x1 = rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i);
             if (x1 == 0xFFFF) continue;
             MapLocation x = intToChunk(x1);
-            if (nearest == null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
+            if (nearest == null || loc.distanceSquaredTo(x) <
+                    loc.distanceSquaredTo(nearest)) {
                 nearest = x;
             }
         }
@@ -1419,7 +1427,7 @@ public abstract class Robot {
         rc.writeSharedArray(Robot.INDEX_EXPLORED_CHUNKS + 3, 0);
     }
 
-    double computeStrength(RobotInfo[] robots) throws GameActionException {
+    double computeTotalStrength(RobotInfo[] robots) throws GameActionException {
         double strength = 0;
 
         for (RobotInfo r : robots) {
@@ -1492,7 +1500,7 @@ public abstract class Robot {
         double rub = rubble(myLoc);
         int a = rubble(myLoc.translate(-(int) (dx * rad), -(int) (dy * rad))) > rub ? 1 : 0;
         int b = rubble(myLoc.translate((int) (dx * rad), (int) (dy * rad))) > rub ? 1 : 0;
-        double st = (int) ((computeStrength(enemies) - computeStrength(friends))
+        double st = (int) ((computeTotalStrength(enemies) - computeTotalStrength(friends))
                 * (10 + rub));
         int s;
         if (st < 0.5) {
