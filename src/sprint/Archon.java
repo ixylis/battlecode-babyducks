@@ -182,7 +182,7 @@ public class Archon extends Robot {
         double minerToSoldier = 0.6 - (rc.getRoundNum() / 5000.0) -
                 (rc.getMapWidth() * rc.getMapHeight() / 12800.0);
 
-        if (!underAttack && rc.getRoundNum() > 100 && builders == 0) {
+        if (!underAttack && rc.getRoundNum() > 100 - 50 && builders == 0) {
             if (buildInDirection(RobotType.BUILDER, rc.getLocation().directionTo(new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2)).opposite())) {
                 //writeMisc(BIT_LAB, readMisc(BIT_LAB, NUM_LAB) + 1, NUM_LAB);
                 builders++;
@@ -204,7 +204,7 @@ public class Archon extends Robot {
                 soldiers++;
                 return;
             } else {
-                if (!underAttack && rc.getRoundNum() > 100 * (1 + numLabs)
+                if (!underAttack && rc.getRoundNum() > 100 * (1 + numLabs) - 50
                         && (6 * numLabs * 40) < income) {
                     // save lead for lab before building soldiers
                     if (rc.getTeamLeadAmount(rc.getTeam()) < 180) {

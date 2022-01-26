@@ -61,7 +61,7 @@ public class Builder extends Robot {
       }
       Direction dir = me.directionTo(nearestCorner);
       if (me.distanceSquaredTo(nearestCorner) <= 2 || 
-          (!builtLab && me.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared
+          (!builtLab && me.distanceSquaredTo(hqLoc) > 9
            && (rc.canSenseLocation(me.add(dir)) && rc.senseRubble(me.add(dir)) == 0
              || (rc.canSenseLocation(me.add(dir.rotateLeft())) && rc.senseRubble(me.add(dir.rotateLeft())) == 0)
              || (rc.canSenseLocation(me.add(dir.rotateRight())) && rc.senseRubble(me.add(dir.rotateRight())) == 0)))) {

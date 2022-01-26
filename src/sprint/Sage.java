@@ -163,8 +163,12 @@ public class Sage extends Robot {
             if(minRubble > nearbyRubble[i])
                 minRubble = nearbyRubble[i];
         }
-        rc.setIndicatorString(maxDmg+" m "+rc.getMovementCooldownTurns()+" a "+rc.getActionCooldownTurns()+" minr "+minRubble+" myr "+nearbyRubble[8]);
-        if(maxDmg < 2*dmgNow || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
+        //max damage if it hits everyone in vision range
+        //damage if it only hits what it's in range of
+        //movement and attack cooldowns.
+        //
+        rc.setIndicatorString(maxDmg+" d "+dmgNow+" m "+rc.getMovementCooldownTurns()+" a "+rc.getActionCooldownTurns()+" minr "+minRubble+" myr "+nearbyRubble[8]);
+        if(maxDmg < 1.5*dmgNow || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
 
             if(rc.isActionReady() && ((minRubble+10)*10>(nearbyRubble[8]+10)*7)  || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
                 attack();
