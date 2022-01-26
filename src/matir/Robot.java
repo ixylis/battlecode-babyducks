@@ -163,9 +163,8 @@ public abstract class Robot {
         corners[3] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() - 1);
 //        corners[4] = new MapLocation(rc.getMapWidth() / 2, 0);
 //        corners[5] = new MapLocation(0, rc.getMapHeight() / 2);
-//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-//        corners[7] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-//        corners[8] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
+//        corners[6] = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() - 1);
+//        corners[7] = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() / 2);
         myLoc = rc.getLocation();
     }
 
@@ -1024,13 +1023,18 @@ public abstract class Robot {
     }
 
     MapLocation getNearestEnemySoldierChunk() throws GameActionException {
+        return getNearestEnemySoldierChunk(myLoc);
+    }
+
+    MapLocation getNearestEnemySoldierChunk(MapLocation loc) throws GameActionException {
         MapLocation nearest = null;
 
         for (int i = 0; i < NUM_ENEMY_UNIT_CHUNKS; i++) {
             int x1 = rc.readSharedArray(INDEX_ENEMY_UNIT_LOCATION + i);
             if (x1 == 0xFFFF) continue;
             MapLocation x = intToChunk(x1);
-            if (nearest == null || rc.getLocation().distanceSquaredTo(x) < rc.getLocation().distanceSquaredTo(nearest)) {
+            if (nearest == null || loc.distanceSquaredTo(x) <
+                    loc.distanceSquaredTo(nearest)) {
                 nearest = x;
             }
         }

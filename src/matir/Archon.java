@@ -151,13 +151,6 @@ public class Archon extends Robot {
         // if we're under attack, override this and always build
         boolean underAttack = rc.senseNearbyRobots(ARCHON.visionRadiusSquared,
                 rc.getTeam().opponent()).length > 0;
-        int mapLead = countLead();
-        int max_miners = (int) ((pow(rc.getMapHeight() * rc.getMapHeight(), 0.8)
-                / 250.0) * pow(rc.getRoundNum(), 0.3));
-        int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
-                max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 20;
-        double minerToSoldier = max(0.7 - (rc.getRoundNum() / 5000.0) -
-                (800.0 / (rc.getMapWidth() * rc.getMapHeight())), 0.01);
 
         int builders = readMisc(BIT_BUILDER, NUM_BUILDER);
         if (!underAttack && rc.getRoundNum() >
@@ -167,6 +160,14 @@ public class Archon extends Robot {
                             rc.getMapHeight() / 2)).opposite())) {
             }
         }
+
+        int mapLead = countLead();
+        int max_miners = (int) ((pow(rc.getMapHeight() * rc.getMapHeight(), 0.8)
+                / 200.0) * pow(rc.getRoundNum(), 0.3));
+        int initTurns = 10 + (max(rc.getMapWidth() - myLoc.x - 1, myLoc.x) +
+                max(rc.getMapHeight() - myLoc.y - 1, myLoc.y)) / 20;
+        double minerToSoldier = max(0.7 - (rc.getRoundNum() / 5000.0) -
+                (800.0 / (rc.getMapWidth() * rc.getMapHeight())), 0.01);
 
         int numLabs = readMisc(BIT_LAB, NUM_LAB);
 
@@ -186,7 +187,7 @@ public class Archon extends Robot {
                 if (underAttack || rc.getRoundNum() <
                         (140 -rc.getMapWidth()-rc.getMapHeight()) ||
                         rc.getTeamLeadAmount(rc.getTeam()) > 255 ||
-                builders == 0) {
+                builders == 0 || rc.getRoundNum() < numLabs * 50) {
                     if (buildInDirection(RobotType.SOLDIER,
                             rc.getLocation().directionTo(new MapLocation(
                                     rc.getMapWidth() / 2, rc.getMapHeight() / 2))))
@@ -197,8 +198,8 @@ public class Archon extends Robot {
 
         repair();
 
-        writeMisc(BIT_LAB, NUM_LAB, 0);
-        writeMisc(BIT_BUILDER, NUM_BUILDER, 0);
+        writeMisc(BIT_LAB, 0, NUM_LAB);
+        writeMisc(BIT_BUILDER, 0, NUM_BUILDER);
         if(rc.getRoundNum() % 7 == 0) saveInfo();
 
         if (rc.getRoundNum() % 16 == 0) {

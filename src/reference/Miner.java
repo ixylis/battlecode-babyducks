@@ -4413,6 +4413,37 @@ public class Miner extends Robot {
     int planMovementCounter = 0;
 
     private void planMovement() throws GameActionException {
+
+        if(target != null) {
+            if (myLoc.distanceSquaredTo(target) <= MINER.visionRadiusSquared)
+                target = null;
+        }
+
+        double bestVal = 0;
+        if(rc.getRoundNum() > 200 && target == null) {
+            for(int i=0;i<NUM_LEAD_DEPOSITS;i++) {
+                int x = getDeposit(i);
+                MapLocation loc = chunkToloc(x);
+                double enemyHeat = getEnemyHeat(loc);
+                if(enemyHeat > 0.1) continue;
+                double heatDiff = getHeatDiff(loc);
+                if(heatDiff < 0.01) continue;
+                double lead = chunkToLead(x);
+                if(lead < 50) continue;
+                double util = max(MINER.getMaxHealth(1)/
+                        (((enemyHeat - 3 * heatDiff) * 20) * 3), lead);
+                if(util > bestVal) {
+                    bestVal = util;
+                    target = loc;
+                }
+            }
+        }
+
+        if(target != null) {
+            moveToward(target);
+            return;
+        }
+
         RobotInfo[] enemies = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam().opponent());
         RobotInfo[] nearby = rc.senseNearbyRobots(MINER.visionRadiusSquared, rc.getTeam());
         MapLocation me = rc.getLocation();

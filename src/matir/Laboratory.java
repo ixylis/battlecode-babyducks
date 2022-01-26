@@ -11,7 +11,8 @@ public class Laboratory extends Robot {
     private MapLocation relocTarget;
     private int anomalyIndex = 0;
     private int vortexIndex = 0;
-    private static final int EXPECTED_MOVE_COST = 5;
+    private static final int EXPECTED_MOVE_COST = 6;
+    boolean failed;
     AnomalyScheduleEntry[] anomalies;
 
     Laboratory(RobotController r) throws GameActionException {
@@ -29,19 +30,29 @@ public class Laboratory extends Robot {
         if (rc.getMode() == RobotMode.PROTOTYPE) return;
 
         // convert lead to gold if the conversion rate is better than 6:1
-        if (rc.getTransmutationRate() <= 6) {
+        if (rc.getTransmutationRate() <= 6 && income > (numLabs + 1) * 8 &&
+            numLabs < (rc.getMapWidth() * rc.getMapHeight()) / 200) {
             if (rc.canTransmute())
                 rc.transmute();
+        } else {
+            failed = true;
         }
 
-        considerRelocate();
-        continueRelocate();
+        relocate();
     }
 
-    void continueRelocate() throws GameActionException {
-        if (!relocating) return;
-
+    void relocate() throws GameActionException {
         considerRelocate(); // for possible better relocation spot
+
+        if (!relocating) {
+            if(rc.getMode() == RobotMode.PORTABLE) {
+                if(rc.canTransform()) {
+                    rc.transform();
+                }
+            }
+
+            return;
+        }
 
         if (rc.getMode() == RobotMode.TURRET) {
             if (rc.canTransform()) rc.transform();
@@ -108,15 +119,19 @@ public class Laboratory extends Robot {
 
         if(me > 0) relocTarget = relocTarget.subtract(badDir)
                 .subtract(badDir).subtract(badDir).subtract(badDir);
+        else {
+            badDir = relocTarget.directionTo(
+                    new MapLocation((int) cmfx, (int) cmfy));
 
-        badDir = relocTarget.directionTo(
-                new MapLocation((int)cmfx, (int)cmfy));
-
-        if(mf > 0) relocTarget = relocTarget.subtract(badDir).subtract(badDir);
+            if (rc.getTransmutationRate() > 6) relocTarget =
+                    relocTarget.subtract(badDir).subtract(badDir)
+                            .subtract(badDir).subtract(badDir);
+        }
 
         for (MapLocation newLoc : rc.getAllLocationsWithinRadiusSquared(
                 relocTarget, 13)) {
-            int newRubble = (int) sqrt(here.distanceSquaredTo(newLoc)) * EXPECTED_MOVE_COST +
+            int newRubble = (int) sqrt(here.distanceSquaredTo(newLoc)) *
+                    EXPECTED_MOVE_COST +
                     (rc.canSenseLocation(newLoc) ? rc.senseRubble(newLoc) : 100);
 
             if (newRubble < bestRubble) {
@@ -128,14 +143,17 @@ public class Laboratory extends Robot {
         double curMul = 1 + curRubble / 10.0, bestMul = 1 + bestRubble / 10.0;
         int curTurnsLeft = (int) (roundsLeft / curMul);
         if (relocating) curTurnsLeft -= curMul * rc.getTransformCooldownTurns();
-        double moveCost = 1 + rc.senseRubble(myLoc) / 10.0;
         int bestTurnsLeft = (int) ((roundsLeft - (curMul + bestMul) * rc.getTransformCooldownTurns()
-                - sqrt(here.distanceSquaredTo(relocTarget)) * moveCost) / bestMul);
+                - sqrt(here.distanceSquaredTo(relocTarget)) * EXPECTED_MOVE_COST)
+                / bestMul);
 
         double interestFactor = 1.2;
 
-        if (bestTurnsLeft > interestFactor * curTurnsLeft) {
+        if (bestTurnsLeft > interestFactor * curTurnsLeft ||
+                rc.getTransmutationRate() > 6) {
             relocating = true;
+        } else {
+            relocating = false;
         }
     }
 

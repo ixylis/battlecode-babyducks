@@ -321,7 +321,12 @@ public class Sage extends Robot {
             return;
         }
 
-        if(rc.canEnvision(FURY)) {
+        MapLocation archon = intToLoc(rc.readSharedArray(
+                INDEX_ARCHON_LOC));
+
+        if(rc.canEnvision(FURY) &&
+            myLoc.distanceSquaredTo(archon) >
+                    SAGE.actionRadiusSquared) {
             rc.envision(FURY);
         }
     }
