@@ -70,6 +70,9 @@ public class Builder extends Robot {
                 distanceToNearestCorner = me.distanceSquaredTo(corner);
             }
         }
+        // if no corner works, default to the first one
+        // this means we have already built in all four corners, so we're probably winning
+        if (nearestCorner == null) nearestCorner = corners[0];
         // build on zero-rubble squares far from other labs/HQ or, failing that, squares in the corner
         Direction mediocreDir = null;
         for (Direction dir : Direction.allDirections()) {
