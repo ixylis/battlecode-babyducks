@@ -395,7 +395,7 @@ public class Sage extends Robot {
         MapLocation me = rc.getLocation();
         if(x != null) {
             if((rc.getActionCooldownTurns()>40 || rc.getRoundNum()%50<30) && 
-                    (rc.getLocation().distanceSquaredTo(x) < 49 || (rc.getLocation().distanceSquaredTo(home) > rc.getLocation().distanceSquaredTo(x))) &&
+                    (rc.getLocation().distanceSquaredTo(x) < 49 || (home == null || rc.getLocation().distanceSquaredTo(home) > rc.getLocation().distanceSquaredTo(x))) &&
                     friends < 10) {
                 if(home==null) movementTarget = rc.getLocation().translate(me.x - x.x, me.y - x.y);
                 else movementTarget = home;
