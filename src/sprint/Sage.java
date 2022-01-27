@@ -71,6 +71,7 @@ public class Sage extends Robot {
         boolean[] canMove = new boolean[9];
         //int[] enemiesInRange = new int[9];
         int[] dmg = new int[9];
+        int enemyStrength = 0;
         int[] enemiesFarther = new int[9]; //enemies within one tile of range
         int bestRetreat=-1;
         int bestAdvance=-1;
@@ -78,6 +79,14 @@ public class Sage extends Robot {
         for(int i=0;i<9;i++) {
             MapLocation m = rc.getLocation().add(Direction.allDirections()[i]);
             nearbyRubble[i] = rc.onTheMap(m)?rc.senseRubble(m):1000;
+        }
+        for(RobotInfo r : enemies) {
+            switch(r.type) {
+            case SAGE: enemyStrength += 2; break;
+            case SOLDIER: enemyStrength += 1; break;
+            case WATCHTOWER: enemyStrength += 2 * r.level; break;
+            default: break;
+            }
         }
         for(int i=0;i<9;i++) {
             if(i<8 && !rc.canMove(Direction.allDirections()[i])) 
@@ -115,7 +124,7 @@ public class Sage extends Robot {
             }
         }
         //if we aren't shooting any time soon, retreat
-        if(rc.getActionCooldownTurns() > 50 || (rc.getRoundNum()%25<19 && lastShotTurn > rc.getRoundNum()+30)) {
+        if(rc.getActionCooldownTurns() > 30 || (rc.getRoundNum()%30<0 && enemyStrength>1/*lastShotTurn > rc.getRoundNum()+30*/)) {
             if(bestRetreat!=8 && bestRetreat != -1) //don't bother if the optimal move is to stay where you are
                 rc.move(Direction.allDirections()[bestRetreat]);
         } else {
@@ -339,7 +348,7 @@ public class Sage extends Robot {
         rc.setIndicatorString("adv " + myAdvanceStrength + " oppAdv " + enemyAdvanceStrength + " hold " + myHoldStrength + " oppHold " + enemyHoldStrength);
         return true;
     }
-
+    MapLocation home;
     private void movement() throws GameActionException {
         /* if (rc.isActionReady()) {
             RobotInfo[] enemies = rc.senseNearbyRobots(SAGE.visionRadiusSquared,
@@ -371,16 +380,34 @@ public class Sage extends Robot {
             }
         } */
 
+        int friends = 0;
+        for(RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam())) {
+            if(r.type == RobotType.ARCHON) {
+                home = r.location;
+            }
+            if(r.type == RobotType.SAGE || r.type == RobotType.SOLDIER)
+                friends++;
+        }
 
         if (movementTarget != null && rc.canSenseLocation(movementTarget))
             movementTarget = null;
         MapLocation x = super.getNearestEnemyChunk();
-        if (x != null) movementTarget = x;
+        MapLocation me = rc.getLocation();
+        if(x != null) {
+            if((rc.getActionCooldownTurns()>40 || rc.getRoundNum()%50<30) && 
+                    (rc.getLocation().distanceSquaredTo(x) < 49 || (rc.getLocation().distanceSquaredTo(home) > rc.getLocation().distanceSquaredTo(x))) &&
+                    friends < 10) {
+                if(home==null) movementTarget = rc.getLocation().translate(me.x - x.x, me.y - x.y);
+                else movementTarget = home;
+            } else 
+                movementTarget = x;
+        }
         if (movementTarget == null)
             movementTarget = super.getRandomKnownEnemyHQ();
         if (movementTarget == null)
             movementTarget = super.getRandomPossibleEnemyHQ();
         moveToward(movementTarget);
+        rc.setIndicatorLine(rc.getLocation(), movementTarget, 255, 255, 0);
     }
 
     public void attack() throws GameActionException {
@@ -451,6 +478,7 @@ public class Sage extends Robot {
         if(hitval >= max(droidVal, buildingVal)) {
             if (rc.canAttack(bestTarget.location))
                 rc.attack(bestTarget.location);
+            damageDealt += Math.min(bestTarget.health, 45);
 
             return;
         }
