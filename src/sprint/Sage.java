@@ -146,10 +146,30 @@ public class Sage extends Robot {
                     if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
                         dmgNow+=Math.min(r.health, 11);
                     break;
+                case BUILDER:
+                    maxDmg+=Math.min(r.health, 6);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 6);
+                    break;
                 case MINER:
                     maxDmg+=Math.min(r.health, 8);
                     if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
                         dmgNow+=Math.min(r.health, 8);
+                    break;
+                case ARCHON:
+                    maxDmg+=Math.min(r.health, 60);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 60);
+                    break;
+                case LABORATORY:
+                    maxDmg+=Math.min(r.health, 10);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 10);
+                    break;
+                case WATCHTOWER:
+                    maxDmg+=Math.min(r.health, 15);
+                    if(r.location.isWithinDistanceSquared(rc.getLocation(), rc.getType().actionRadiusSquared))
+                        dmgNow+=Math.min(r.health, 15);
                     break;
                 default: break;
                 }
@@ -379,7 +399,7 @@ public class Sage extends Robot {
             if (rb.type.isBuilding()) {
                 if (rb.type == ARCHON) {
                     buildingVal += rb.health < (maxHP * 0.10) ?
-                            rb.health + 100 : maxHP * 0.01;
+                            rb.health + 100 : maxHP * 0.1;
                 } else {
                     buildingVal += rb.health < (maxHP * 0.10) ?
                             rb.health + 15 : maxHP * 0.1;
