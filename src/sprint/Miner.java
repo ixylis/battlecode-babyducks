@@ -34,10 +34,10 @@ public class Miner extends Robot {
         //boolean shouldDoSuitability = false;
         if (rc.isMovementReady() && (rc.getRoundNum() - lastSuitabilityRound < 10)) {
             movement();
-        } else {
+        } else if(rc.getRoundNum() - lastSuitabilityRound > 0) {
             lastSuitabilityRound = rc.getRoundNum();
             planMovement();
-            super.updateEnemyLocations();
+            //super.updateEnemyLocations();
         }
         //if(rc.getID() != 13202)
         //rc.setIndicatorString(Arrays.toString(suitability));
@@ -226,6 +226,7 @@ public class Miner extends Robot {
                     ignorablePb[i] = true;
                     continue;
                 }
+                /*
                 for (RobotInfo r : nearby) {
                     if (r.type == MINER) {
                         if (r.location.distanceSquaredTo(pb) < rc.getLocation().distanceSquaredTo(pb)) {
@@ -234,6 +235,7 @@ public class Miner extends Robot {
                         }
                     }
                 }
+                */
             }
             for (int i = 0; i < pbLocs.length; i++) {
                 if (!ignorablePb[i]) {
@@ -241,12 +243,14 @@ public class Miner extends Robot {
                     return;
                 }
             }
+            /*
             MapLocation nearestEnemy = getNearestEnemySoldierChunk();
             if (nearestEnemy != null && rc.getLocation().distanceSquaredTo(nearestEnemy) < 36) {
                 Direction d = nearestEnemy.directionTo(rc.getLocation());
                 //super.moveInDirection(d);
                 //return;
             }
+            */
             frustration = 1;
 
             moveToward(null);
@@ -4420,7 +4424,8 @@ public class Miner extends Robot {
         }
 
         double bestVal = 0;
-        if(rc.getRoundNum() > 200 && target == null) {
+        if(rc.getRoundNum() > 150 && target == null) {
+            /*
             for(int i=0;i<NUM_LEAD_DEPOSITS;i++) {
                 int x = getDeposit(i);
                 MapLocation loc = chunkToloc(x);
@@ -4436,11 +4441,23 @@ public class Miner extends Robot {
                     bestVal = util;
                     target = loc;
                 }
+            }*/
+            
+            for(int i=0;i<NUM_LEAD_DEPOSITS;i++) {
+                int x = getDeposit(i);
+                double lead = chunkToLead(x);
+                MapLocation loc = chunkToloc(x);
+                double util = lead/Math.sqrt(loc.distanceSquaredTo(rc.getLocation()));
+                if(util > bestVal) {
+                    bestVal = util;
+                    target = loc;
+                }
             }
+            
         }
 
         if(target != null) {
-            moveToward(target);
+            setNavCosts(target);
             return;
         }
 

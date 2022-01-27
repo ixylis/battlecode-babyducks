@@ -11,9 +11,14 @@ import static java.lang.Math.max;
 public class Sage extends Robot {
     Sage(RobotController r) throws GameActionException {
         super(r);
+        for(RobotInfo rr : rc.senseNearbyRobots(3)) {
+            if(rr.type == RobotType.ARCHON)
+                home = rr.location;
+        }
     }
 
     private MapLocation movementTarget = null;
+    int lastHP;
 
     public void turn() throws GameActionException {
         boolean m = micro();
@@ -29,6 +34,7 @@ public class Sage extends Robot {
                 rc.getRoundNum() % NUM_ENEMY_UNIT_CHUNKS)), 1, 255, 1);
         if(damageDealt > 100)
             rc.setIndicatorDot(rc.getLocation(), 0, 255, 255);
+        lastHP = rc.getHealth();
     }
 
     /*
@@ -192,10 +198,11 @@ public class Sage extends Robot {
             if(minRubble > nearbyRubble[i])
                 minRubble = nearbyRubble[i];
         }
-        rc.setIndicatorString(maxDmg+" m "+rc.getMovementCooldownTurns()+" a "+rc.getActionCooldownTurns()+" minr "+minRubble+" totalD "+damageDealt);
-        if(maxDmg < 2*dmgNow || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
+        boolean lowHP = rc.getHealth() < (100+0*rc.getMovementCooldownTurns())*maxDmg/100;
+        rc.setIndicatorString(maxDmg+" n "+dmgNow+" m "+rc.getMovementCooldownTurns()+" a "+rc.getActionCooldownTurns()+" minr "+minRubble+" totalD "+damageDealt);
+        if(maxDmg < 2*dmgNow || lowHP) {
 
-            if(rc.isActionReady() && ((minRubble+10)*10>(nearbyRubble[8]+10)*7)  || rc.getHealth() < (20+rc.getMovementCooldownTurns())*maxDmg/100) {
+            if(rc.isActionReady() && ((minRubble+10)*10>(nearbyRubble[8]+10)*7)  || lowHP) {
                 attack();
                 if(!rc.isActionReady())
                     lastShotTurn = rc.getRoundNum();
@@ -349,6 +356,8 @@ public class Sage extends Robot {
         return true;
     }
     MapLocation home;
+    int turnsNearHome=0;
+    boolean baseFull = false;
     private void movement() throws GameActionException {
         /* if (rc.isActionReady()) {
             RobotInfo[] enemies = rc.senseNearbyRobots(SAGE.visionRadiusSquared,
@@ -379,6 +388,21 @@ public class Sage extends Robot {
                 return;
             }
         } */
+        if(rc.getHealth() < 23 && !baseFull && !rc.getLocation().isWithinDistanceSquared(home, 9)) {
+            moveToward(home);
+        } else
+        if(rc.getHealth() < 98 && !baseFull && rc.getLocation().isWithinDistanceSquared(home, 34) && !rc.getLocation().isWithinDistanceSquared(home, 9)) {
+            moveToward(home);
+        }
+        if(rc.getLocation().isWithinDistanceSquared(home, 20)) {
+            turnsNearHome++;
+        } else {
+            turnsNearHome=0;
+        }
+        if(lastHP < rc.getHealth())
+            turnsNearHome = 0;
+        if(rc.getHealth() < 98 && turnsNearHome > 10)
+            baseFull = true;
 
         int friends = 0;
         for(RobotInfo r : rc.senseNearbyRobots(rc.getType().visionRadiusSquared, rc.getTeam())) {

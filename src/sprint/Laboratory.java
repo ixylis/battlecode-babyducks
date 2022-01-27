@@ -29,6 +29,7 @@ public class Laboratory extends Robot {
         writeMisc(BIT_LAB, NUM_LAB, numLabs + 1);
         if (rc.getMode() == RobotMode.PROTOTYPE) return;
 
+
         // convert lead to gold if the conversion rate is better than 6:1
         if (rc.getTransmutationRate() <= 6 &&
         rc.getTeamLeadAmount(rc.getTeam()) > 10 * numLabs &&
