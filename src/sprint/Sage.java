@@ -110,7 +110,7 @@ public class Sage extends Robot {
             if((bestRetreat==-1 || (enemiesFarther[i]+1) * (nearbyRubble[i] + 10) < (nearbyRubble[bestRetreat] + 10) * (1+enemiesFarther[bestRetreat]))) {
                 bestRetreat = i;
             }
-            if((bestAdvance==-1 || (dmg[i]+100) * (nearbyRubble[i] + 10) < (nearbyRubble[bestAdvance] + 10) * (100+dmg[bestAdvance]))) {
+            if((bestAdvance==-1 || (dmg[i]+100) + (nearbyRubble[i] + 10) < (nearbyRubble[bestAdvance] + 10) + (100+dmg[bestAdvance]))) {
                 bestAdvance = i;
             }
         }
