@@ -62,7 +62,7 @@ public class Builder extends Robot {
         for (MapLocation corner : corners) {
             boolean replaceCorner = true;
             replaceCorner &= (me.distanceSquaredTo(corner) < distanceToNearestCorner);
-            replaceCorner &= (corner.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared);
+            replaceCorner &= (hqLoc == null || corner.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared);
             for (MapLocation labLoc : labLocs)
                 replaceCorner &= (corner.distanceSquaredTo(labLoc) > RobotType.LABORATORY.visionRadiusSquared);
             if (replaceCorner) {
@@ -75,7 +75,7 @@ public class Builder extends Robot {
         for (Direction dir : Direction.allDirections()) {
             MapLocation newLoc = me.add(dir);
             boolean goodSquare = true;
-            goodSquare &= (newLoc.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared);
+            goodSquare &= (hqLoc == null || newLoc.distanceSquaredTo(hqLoc) > RobotType.LABORATORY.visionRadiusSquared);
             for (MapLocation labLoc : labLocs)
                 goodSquare &= (newLoc.distanceSquaredTo(labLoc) > RobotType.LABORATORY.visionRadiusSquared);
             if (goodSquare && rc.canSenseLocation(newLoc) && rc.senseRubble(newLoc) < 5) mediocreDir = dir;
