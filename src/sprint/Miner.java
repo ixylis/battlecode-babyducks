@@ -251,11 +251,28 @@ public class Miner extends Robot {
                 //return;
             }
             */
-            frustration = 1;
-
-            moveToward(null);
-            if (target != null)
-                rc.setIndicatorDot(target, 255, 255, 255);
+            /*
+            int sageDiff = 0;
+            for(RobotInfo r : nearby) {
+                if(r.type != RobotType.SAGE) continue;
+                if(r.location.distanceSquaredTo(home) < rc.getLocation().distanceSquaredTo(home))
+                    sageDiff++;
+                else
+                    sageDiff--;
+            }
+            if(sageDiff > 0)
+                moveToward(home);
+            */
+            MapLocation nearestEnemy = super.getNearestEnemySoldierChunk();
+            if(nearestEnemy != null && rc.getLocation().isWithinDistanceSquared(nearestEnemy, 81))
+                moveToward(home);
+            else {
+                frustration = 1;
+    
+                moveToward(null);
+                if (target != null)
+                    rc.setIndicatorDot(target, 255, 255, 255);
+            }
         }
     }
 

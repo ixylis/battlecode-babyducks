@@ -118,7 +118,7 @@ public class Archon extends Robot {
                     break;
                 }
             }
-            if (nearbyminer && nearby.length >= 2) rc.disintegrate();
+            if (nearbyminer && nearby.length >= 1) rc.disintegrate();
             return;
         }
 
